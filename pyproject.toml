@@ -6,7 +6,10 @@ authors = ["Sarang S <email.sarangs@gmail.com>"]
 readme = "README.md"
 
 [tool.poetry.dependencies]
-python = "^3.12"
+python = "^3.10"
+flwr = {extras = ["simulation"], version = "^1.8.0"}
+torch = "^2.3.0"
+torchvision = "^0.18.0"
 
 
 [build-system]
