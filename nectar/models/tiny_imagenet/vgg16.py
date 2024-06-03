@@ -148,7 +148,9 @@ def train(student, trainloader, optim, epochs, device: str):
                 student_logits, teacher_logits, dist_type="categorical"
             ).sum()
 
-            loss = criterion(student_logits, labels) - 0.5 * mi_loss
+            ce_loss = criterion(student_logits, labels)
+            print(mi_loss, ce_loss)
+            loss = criterion(student_logits, labels) - 0.000005 * mi_loss
             # + distiller(student_logits, teacher_logits)
 
             loss.backward()
