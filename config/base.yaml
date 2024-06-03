@@ -1,0 +1,38 @@
+num_clients: 2
+num_rounds: 2
+
+client_resources:
+  num_cpus: 4
+  num_gpus: 0
+
+fit_config:
+  epochs: 1
+  batch_size: 32
+  optimizer:
+    _target_: torch.optim.Adam
+    lr: 0.01
+
+
+dataset: 
+  name: "mnist"
+  train: "train"
+  test: "test"
+
+partitioners:
+  train: 
+    _target_: flwr_datasets.partitioner.DirichletPartitioner 
+    num_partitions: ${num_clients}
+    alpha: 0.5
+    partition_by: label
+
+strategy:
+  _target_: flwr.server.strategy.FedAvg
+  fraction_fit: 1.0
+  fraction_evaluate: 1.0
+  min_fit_clients: ${num_clients}
+  min_available_clients: ${num_clients}
+
+  
+
+
+  

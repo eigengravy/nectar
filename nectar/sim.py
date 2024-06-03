@@ -18,9 +18,10 @@ from datasets import Dataset
 from datasets.utils.logging import disable_progress_bar
 from flwr_datasets import FederatedDataset
 
-from nectar.models.mnist import apply_transforms
-from nectar.models.mnist.simplecnn import SimpleCNN as Net, train
+from nectar.models.tiny_imagenet import apply_transforms, get_dataset
+from nectar.models.tiny_imagenet.vgg16 import VGG16 as Net, train
 from nectar.utils.model import test
+from nectar.utils.params import get_params, set_params
 
 
 # Flower client, adapted from Pytorch quickstart example
@@ -34,27 +35,20 @@ class FlowerClient(fl.client.NumPyClient):
         self.model.to(self.device)  # send model to device
 
     def get_parameters(self, config):
-        return [val.cpu().numpy() for _, val in self.model.state_dict().items()]
+        return get_params(self.model)
 
     def fit(self, parameters, config):
         set_params(self.model, parameters)
 
         # Read from config
         batch, epochs = config["batch_size"], config["epochs"]
-
-        # Construct dataloader
         trainloader = DataLoader(self.trainset, batch_size=batch, shuffle=True)
 
-        # Define optimizer
         optimizer = torch.optim.SGD(self.model.parameters(), lr=0.01, momentum=0.9)
-        # Train
         results = train(
             self.model, trainloader, optimizer, epochs=epochs, device=self.device
         )
-
-        # print(f"Results {self.cid}: {results}")
-
-        return self.get_parameters({}), len(trainloader.dataset), results
+        return get_params(self.model), len(trainloader.dataset), results
 
     def evaluate(self, parameters, config):
         set_params(self.model, parameters)
@@ -95,17 +89,10 @@ def get_client_fn(dataset: FederatedDataset):
 def fit_config(server_round: int) -> Dict[str, Scalar]:
     """Return a configuration with static batch size and (local) epochs."""
     config = {
-        "epochs": 1,  # Number of local epochs done by clients
-        "batch_size": 32,  # Batch size to use by clients during fit()
+        "epochs": 2,  # Number of local epochs done by clients
+        "batch_size": 64,  # Batch size to use by clients during fit()
     }
     return config
-
-
-def set_params(model: torch.nn.ModuleList, params: List[fl.common.NDArrays]):
-    """Set model weights from a list of NumPy ndarrays."""
-    params_dict = zip(model.state_dict().keys(), params)
-    state_dict = OrderedDict({k: torch.Tensor(v) for k, v in params_dict})
-    model.load_state_dict(state_dict, strict=True)
 
 
 def evaluate_metrics_aggregation_fn(metrics: List[Tuple[int, Metrics]]) -> Metrics:
@@ -251,11 +238,7 @@ def main():
 
     args = parser.parse_args()
 
-    # Download MNIST dataset and partition it
-    mnist_fds = FederatedDataset(
-        dataset="mnist", partitioners={"train": args.num_clients}
-    )
-    centralized_testset = mnist_fds.load_split("test")
+    mnist_fds, centralized_testset = get_dataset(args.num_clients)
 
     # Configure the strategy
     strategy = fl.server.strategy.FedAvg(

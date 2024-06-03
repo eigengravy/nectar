@@ -17,10 +17,3 @@ def test(net, testloader, device: str):
             correct += (predicted == labels).sum().item()
     accuracy = correct / len(testloader.dataset)
     return loss, accuracy
-
-
-def set_params(model: torch.nn.ModuleList, params: List[fl.common.NDArrays]):
-    """Set model weights from a list of NumPy ndarrays."""
-    params_dict = zip(model.state_dict().keys(), params)
-    state_dict = OrderedDict({k: torch.Tensor(v) for k, v in params_dict})
-    model.load_state_dict(state_dict, strict=True)

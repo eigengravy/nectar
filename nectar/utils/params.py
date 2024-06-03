@@ -12,7 +12,6 @@ def get_params(model: torch.nn.ModuleList) -> List[fl.common.NDArray]:
 
 def set_params(model: torch.nn.ModuleList, params: List[fl.common.NDArrays]) -> None:
     """Set model weights from a list of NumPy ndarrays."""
-    state_dict = OrderedDict(
-        {k: torch.Tensor(v) for k, v in zip(model.state_dict().keys(), params)}
-    )
+    params_dict = zip(model.state_dict().keys(), params)
+    state_dict = OrderedDict({k: torch.Tensor(v) for k, v in params_dict})
     model.load_state_dict(state_dict, strict=True)

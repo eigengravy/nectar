@@ -13,3 +13,5 @@ def get_dataset(num_splits: int):
         dataset="mnist", partitioners={"train": num_splits}
     )
     centralized_testset = federated_dataset.load_split("test")
+
+    return federated_dataset, centralized_testset
