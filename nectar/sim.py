@@ -237,7 +237,6 @@ def main():
     parser.add_argument("--num_rounds", type=int, default=2, help="Number of rounds")
 
     run_id = datetime.now().strftime("%d-%b-%H%M") + "-" + str(uuid.uuid4())[:8]
-    os.makedirs(f"runs/{run_id}")
 
     args = parser.parse_args()
 
@@ -286,6 +285,8 @@ def main():
     )
 
     config["end_time"] = datetime.now().strftime("%H:%M:%S")
+
+    os.makedirs(f"runs/{run_id}")
 
     with open(f"runs/{run_id}/config.json", "w") as f:
         json.dump(config, f, indent=4)

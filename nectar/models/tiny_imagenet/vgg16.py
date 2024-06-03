@@ -149,7 +149,7 @@ def train(student, trainloader, optim, epochs, device: str):
             ).sum()
 
             ce_loss = criterion(student_logits, labels)
-            print(mi_loss, ce_loss)
+            print(mi_loss.item(), ce_loss.item())
             loss = criterion(student_logits, labels) - 0.000005 * mi_loss
             # + distiller(student_logits, teacher_logits)
 
