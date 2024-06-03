@@ -104,19 +104,22 @@ def evaluate_metrics_aggregation_fn(metrics: List[Tuple[int, Metrics]]) -> Metri
 
 
 def fit_metrics_aggregation_fn(metrics: List[Tuple[int, Metrics]]) -> Metrics:
-    accuracies = [num_examples * m["accuracy"] for num_examples, m in metrics]
-    loss = [num_examples * m["loss"] for num_examples, m in metrics]
+    accuracies = [m["accuracy"] for num_examples, m in metrics]
+    loss = [m["loss"] / num_examples for num_examples, m in metrics]
     examples = [num_examples for num_examples, _ in metrics]
 
     mi_gauss = [m["mi_gauss"] / num_examples for num_examples, m in metrics]
     mi_cat = [m["mi_cat"] / num_examples for num_examples, m in metrics]
 
-    return {
-        "accuracy": sum(accuracies) / sum(examples),
-        "loss": sum(loss) / sum(examples),
+    metrics = {
+        "accuracy": accuracies,
+        "loss": loss,
         "mi_gauss": mi_gauss,
         "mi_cat": mi_cat,
     }
+
+    print(metrics)
+    return metrics
 
 
 def get_evaluate_fn(
