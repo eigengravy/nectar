@@ -127,11 +127,6 @@ def train(student, trainloader, optim, epochs, device: str):
             optim.zero_grad()
             student_logits = student(images)
             teacher_logits = teacher(images)
-            loss = criterion(student_logits, labels) + distiller(
-                student_logits, teacher_logits
-            )
-            loss.backward()
-            optim.step()
 
             with torch.no_grad():
                 mi_gauss += (
@@ -148,6 +143,16 @@ def train(student, trainloader, optim, epochs, device: str):
                     .sum()
                     .item()
                 )
+
+            mi_loss = mutual_information(
+                student_logits, teacher_logits, dist_type="categorical"
+            ).sum()
+
+            loss = criterion(student_logits, labels) - 0.5 * mi_loss
+            # + distiller(student_logits, teacher_logits)
+
+            loss.backward()
+            optim.step()
 
     train_loss, train_acc = test(student, trainloader, device)
     results = {

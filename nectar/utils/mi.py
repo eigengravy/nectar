@@ -4,7 +4,6 @@ import torch
 def categorical_entropy(tensor):
     probs = torch.softmax(tensor, dim=-1)
     entropy = -(probs * torch.log(probs)).sum(dim=-1)
-
     return entropy
 
 
