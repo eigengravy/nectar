@@ -1,4 +1,5 @@
 """
+Jensen-Shannon Divergence Loss.
 """
 
 import torch.nn as nn
