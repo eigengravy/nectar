@@ -16,10 +16,10 @@ class NTDLoss(nn.Module):
         self.kld = nn.KLDivLoss(reduction="batchmean")
 
     def _refine_as_not_true(self, logits, targets):
-        nt = torch.arange(0, self.num_classes).to(logits.device)
+        nt = torch.arange(0, logits.size(1)).to(logits.device)
         nt = nt.repeat(logits.size(0), 1)
         nt = nt[nt[:, :] != targets.view(-1, 1)]
-        nt = nt.view(-1, self.num_classes - 1)
+        nt = nt.view(-1, logits.size(1) - 1)
         logits = torch.gather(logits, 1, nt)
         return logits
 
