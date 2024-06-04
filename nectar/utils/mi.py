@@ -51,35 +51,42 @@ def normalized_mutual_information(tensor1, tensor2, dist_type="categorical"):
     entropy1 = entropy_func(tensor1)
     entropy2 = entropy_func(tensor2)
     normalized_mi = mutual_info / (entropy1 + entropy2)
-    return normalized_mi.mean()
+    return normalized_mi
 
 
 if __name__ == "__main__":
-    tensor1 = torch.randn(10, 10, 10)
-    tensor2 = torch.randn(10, 10, 10)
+    tensor1 = torch.randn(100, 10)
+    tensor2 = torch.randn(100, 10)
 
-    mutual_info_categorical = mutual_information(
-        tensor1, tensor2, dist_type="categorical"
-    )
-    mutual_info_gaussian = mutual_information(tensor1, tensor2, dist_type="gaussian")
+    # mutual_info_categorical = mutual_information(
+    #     tensor1, tensor2, dist_type="categorical"
+    # )
+    # mutual_info_gaussian = mutual_information(tensor1, tensor2, dist_type="gaussian")
 
-    averaged_mi_categorical = averaged_mutual_information(
-        tensor1, tensor2, dist_type="categorical"
-    )
-    averaged_mi_gaussian = averaged_mutual_information(
-        tensor1, tensor2, dist_type="gaussian"
-    )
+    # averaged_mi_categorical = averaged_mutual_information(
+    #     tensor1, tensor2, dist_type="categorical"
+    # )
+    # averaged_mi_gaussian = averaged_mutual_information(
+    #     tensor1, tensor2, dist_type="gaussian"
+    # )
 
-    normalized_mi_categorical = normalized_mutual_information(
-        tensor1, tensor2, dist_type="categorical"
-    )
-    normalized_mi_gaussian = normalized_mutual_information(
-        tensor1, tensor2, dist_type="gaussian"
-    )
+    # normalized_mi_categorical = normalized_mutual_information(
+    #     tensor1, tensor2, dist_type="categorical"
+    # )
+    # normalized_mi_gaussian = normalized_mutual_information(
+    #     tensor1, tensor2, dist_type="gaussian"
+    # )
 
-    print(mutual_info_categorical)
-    print(mutual_info_gaussian)
-    print(averaged_mi_categorical)
-    print(averaged_mi_gaussian)
-    print(normalized_mi_categorical)
-    print(normalized_mi_gaussian)
+    a = normalized_mutual_information(tensor1, tensor2, dist_type="gaussian")
+    b = normalized_mutual_information(tensor2, tensor1, dist_type="gaussian")
+
+    print(a.shape)
+    print(b.shape)
+    print((a + b).shape)
+    print(torch.cat((torch.empty(), b), dim=-1).shape)
+    # print(mutual_info_categorical)
+    # print(mutual_info_gaussian)
+    # print(averaged_mi_categorical)
+    # print(averaged_mi_gaussian)
+    # print(normalized_mi_categorical)
+    # print(normalized_mi_gaussian)
