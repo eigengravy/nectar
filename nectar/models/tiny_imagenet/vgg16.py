@@ -4,6 +4,7 @@ import torch.nn.functional as F
 import copy
 
 from nectar.loss.kl import DistillLoss
+from nectar.loss.ntd import NTDLoss
 from nectar.utils.mi import mutual_information
 from nectar.utils.model import test
 
@@ -119,7 +120,7 @@ def train(student, trainloader, optim, epochs, device: str):
     teacher.eval()
     student.to(device)
     student.train()
-    distiller = DistillLoss(temp=3.0, gamma=0.5)
+    distiller = NTDLoss(temp=3.0, gamma=0.5)
     mi_gauss, mi_cat = 0, 0
     for _ in range(epochs):
         for batch in trainloader:
@@ -144,14 +145,9 @@ def train(student, trainloader, optim, epochs, device: str):
                     .item()
                 )
 
-            mi_loss = mutual_information(
-                student_logits, teacher_logits, dist_type="categorical"
-            ).sum()
-
-            ce_loss = criterion(student_logits, labels)
-            print(mi_loss.item(), ce_loss.item())
-            loss = criterion(student_logits, labels) - 0.000005 * mi_loss
-            # + distiller(student_logits, teacher_logits)
+            loss = criterion(student_logits, labels) + distiller(
+                student_logits, teacher_logits, labels
+            )
 
             loss.backward()
             optim.step()
