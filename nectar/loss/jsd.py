@@ -11,7 +11,7 @@ class JSDLoss(nn.Module):
     def __init__(self, gamma=0.5) -> None:
         super().__init__()
         self.gamma = gamma
-        self.kld = nn.KLDivLoss(reduction="batchmean")
+        self.kld = nn.KLDivLoss(reduction="batchmean", log_target=True)
 
     def forward(self, student_logits, teacher_logits):
         """Forward pass."""
@@ -35,12 +35,12 @@ class JSDLoss(nn.Module):
 #         self.tau = tau
 #         self.beta = beta
 #         self.ce = nn.CrossEntropyLoss()
-#         self.kl = nn.KLDivLoss(reduction="batchmean", log_target=True)
+#         self.kld = nn.KLDivLoss(reduction="batchmean", log_target=True)
 
 #     def forward(self, local_logits, global_logits):
 #         p = local_logits.view(-1, local_logits.size(-1)).log_softmax(-1)
 #         with torch.no_grad():
 #             q = global_logits.view(-1, global_logits.size(-1)).log_softmax(-1)
 #         m = 0.5 * (p + q)
-#         jsd_loss = 0.5 * (self.kl(m, p) + self.kl(m, q))
+#         jsd_loss = 0.5 * (self.kld(m, p) + self.kl(m, q))
 #         return jsd_loss
