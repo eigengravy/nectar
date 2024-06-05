@@ -122,9 +122,9 @@ def train(student, trainloader, optim, epochs, device: str):
     teacher.eval()
     student.to(device)
     student.train()
-    # distiller = NTDLoss(temp=3.0, gamma=0.5)
+    distiller = NTDLoss(temp=3.0, gamma=0.5)
     # distiller = DistillLoss(temp=3.0, gamma=0.5)
-    distiller = CosineLoss(gamma=0.5)
+    # distiller = CosineLoss(gamma=0.5)
     # distiller = JSDLoss(gamma=0.5)
     mi_gauss, mi_cat = 0, 0
     for _ in range(epochs):
@@ -151,7 +151,7 @@ def train(student, trainloader, optim, epochs, device: str):
                 )
 
             ce_loss = criterion(student_logits, labels)
-            dist_loss = distiller(student_logits, teacher_logits, labels)
+            dist_loss = distiller(student_logits, teacher_logits)
 
             print(f"CE Loss: {ce_loss.item()}, Distill Loss: {dist_loss.item()}")
             loss = ce_loss + dist_loss
