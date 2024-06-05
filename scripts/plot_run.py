@@ -18,12 +18,11 @@ def read_csv(file_path):
 
 
 def plot_metric(data, title, ylabel, file_name):
-    # print(data)
     rounds = [row[0] for row in data]
     metric_values = [row[1:] for row in data]
     plt.figure(figsize=(12, 6))
-    for i in range(len(metric_values[0])):
-        client_metric = [metric[i] for metric in metric_values]
+    for i in range(len(metric_values[0][0])):
+        client_metric = [metric[0][i] for metric in metric_values]
         plt.plot(rounds, client_metric, label=f"Client {i+1}")
     plt.title(title)
     plt.xlabel("Round")

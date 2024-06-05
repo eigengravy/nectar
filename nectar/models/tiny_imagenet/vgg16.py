@@ -3,6 +3,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 import copy
 
+from nectar.loss.jsd import JSDLoss
 from nectar.loss.kl import DistillLoss
 from nectar.loss.ntd import NTDLoss
 from nectar.utils.mi import normalized_mutual_information, mutual_information
@@ -121,7 +122,8 @@ def train(student, trainloader, optim, epochs, device: str):
     student.to(device)
     student.train()
     # distiller = NTDLoss(temp=3.0, gamma=0.5)
-    distiller = DistillLoss(temp=3.0, gamma=0.5)
+    # distiller = DistillLoss(temp=3.0, gamma=0.5)
+    distiller = JSDLoss(temp=3.0, gamma=0.5)
     mi_gauss, mi_cat = 0, 0
     for _ in range(epochs):
         for batch in trainloader:
