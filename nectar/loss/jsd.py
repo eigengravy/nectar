@@ -24,7 +24,7 @@ class JSDLoss(nn.Module):
         with torch.no_grad():
             q = teacher_logits.view(-1, teacher_logits.size(-1)).log_softmax(-1)
         m = 0.5 * (p + q)
-        jsd_loss = 0.5 * (self.kl(m, p) + self.kl(m, q))
+        jsd_loss = 0.5 * (self.kld(m, p) + self.kld(m, q))
         return jsd_loss
 
 
