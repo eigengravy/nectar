@@ -149,11 +149,12 @@ def train(student, trainloader, optim, epochs, device: str):
             #     student_logits, teacher_logits, labels
             # )
 
+            one_hot_labels = F.one_hot(labels, num_classes=200).float()
             gamma = 0.5
             loss = (1 - gamma) * mutual_information(
-                teacher_logits, labels, dist_type="gaussian"
+                teacher_logits, one_hot_labels, dist_type="gaussian"
             ).sum() + gamma * mutual_information(
-                student_logits, labels, dist_type="gaussian"
+                student_logits, one_hot_labels, dist_type="gaussian"
             ).sum()
 
             loss.backward()
