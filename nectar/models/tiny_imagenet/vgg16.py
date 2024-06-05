@@ -120,7 +120,8 @@ def train(student, trainloader, optim, epochs, device: str):
     teacher.eval()
     student.to(device)
     student.train()
-    distiller = NTDLoss(temp=3.0, gamma=0.5)
+    # distiller = NTDLoss(temp=3.0, gamma=0.5)
+    distiller = DistillLoss(temp=3.0, gamma=0.5)
     mi_gauss, mi_cat = 0, 0
     for _ in range(epochs):
         for batch in trainloader:
@@ -145,17 +146,22 @@ def train(student, trainloader, optim, epochs, device: str):
                     .item()
                 )
 
-            # one_hot_labels = F.one_hot(labels, num_classes=200).float()
-            gamma = 100
             ce_loss = criterion(student_logits, labels)
-            mi_loss = mutual_information(
-                student_logits, teacher_logits, dist_type="gaussian"
-            ).sum()
+            dist_loss = distiller(student_logits, teacher_logits)
 
-            print("CE Loss: ", ce_loss.item())
-            print("MI Loss: ", mi_loss.item())
+            print(f"CE Loss: {ce_loss.item()}, Distill Loss: {dist_loss.item()}")
+            loss = ce_loss + dist_loss
+            # loss = criterion(student_logits, labels) + distiller(
+            #     student_logits, teacher_logits, labels
+            # )
 
-            loss = ce_loss + gamma * mi_loss
+            # one_hot_labels = F.one_hot(labels, num_classes=200).float()
+            # gamma = 0.5
+            # loss = (1 - gamma) * mutual_information(
+            #     teacher_logits, one_hot_labels, dist_type="gaussian"
+            # ).sum() + gamma * mutual_information(
+            #     student_logits, one_hot_labels, dist_type="gaussian"
+            # ).sum()
 
             loss.backward()
             optim.step()
