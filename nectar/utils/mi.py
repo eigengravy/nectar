@@ -68,7 +68,7 @@ def normalized_mutual_information(tensor1, tensor2, dist_type="categorical"):
     mutual_info = mutual_information(tensor1, tensor2, dist_type)
     entropy1 = entropy_func(tensor1)
     entropy2 = entropy_func(tensor2)
-    normalized_mi = mutual_info / (entropy1 + entropy2)
+    normalized_mi = mutual_info / ((entropy1 + entropy2) / 2)
     return normalized_mi
 
 

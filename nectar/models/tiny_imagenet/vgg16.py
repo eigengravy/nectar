@@ -5,7 +5,7 @@ import copy
 
 from nectar.loss.kl import DistillLoss
 from nectar.loss.ntd import NTDLoss
-from nectar.utils.mi import normalized_mutual_information
+from nectar.utils.mi import normalized_mutual_information, mutual_information
 from nectar.utils.model import test
 
 
@@ -131,7 +131,7 @@ def train(student, trainloader, optim, epochs, device: str):
 
             with torch.no_grad():
                 mi_gauss += (
-                    normalized_mutual_information(
+                    mutual_information(
                         student_logits, teacher_logits, dist_type="gaussian"
                     )
                     .sum()
