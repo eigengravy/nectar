@@ -123,7 +123,7 @@ def train(student, trainloader, optim, epochs, device: str):
     student.train()
     # distiller = NTDLoss(temp=3.0, gamma=0.5)
     # distiller = DistillLoss(temp=3.0, gamma=0.5)
-    distiller = JSDLoss(temp=3.0, gamma=0.5)
+    distiller = JSDLoss(gamma=0.5)
     mi_gauss, mi_cat = 0, 0
     for _ in range(epochs):
         for batch in trainloader:
