@@ -151,11 +151,7 @@ def train(student, trainloader, optim, epochs, device: str):
                 )
 
             ce_loss = criterion(student_logits, labels)
-            dist_loss = distiller(
-                student_logits,
-                teacher_logits,
-                torch.ones_like(student_logits).to(device),
-            )
+            dist_loss = distiller(student_logits, teacher_logits, labels)
 
             print(f"CE Loss: {ce_loss.item()}, Distill Loss: {dist_loss.item()}")
             loss = ce_loss + dist_loss
