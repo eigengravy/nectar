@@ -145,17 +145,17 @@ def train(student, trainloader, optim, epochs, device: str):
                     .item()
                 )
 
-            # loss = criterion(student_logits, labels) + distiller(
-            #     student_logits, teacher_logits, labels
-            # )
-
-            one_hot_labels = F.one_hot(labels, num_classes=200).float()
-            gamma = 0.5
-            loss = (1 - gamma) * mutual_information(
-                teacher_logits, one_hot_labels, dist_type="gaussian"
-            ).sum() + gamma * mutual_information(
-                student_logits, one_hot_labels, dist_type="gaussian"
+            # one_hot_labels = F.one_hot(labels, num_classes=200).float()
+            gamma = 100
+            ce_loss = criterion(student_logits, labels)
+            mi_loss = mutual_information(
+                student_logits, teacher_logits, dist_type="gaussian"
             ).sum()
+
+            print("CE Loss: ", ce_loss.item())
+            print("MI Loss: ", mi_loss.item())
+
+            loss = ce_loss + gamma * mi_loss
 
             loss.backward()
             optim.step()
