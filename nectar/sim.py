@@ -244,15 +244,15 @@ def main():
     mnist_fds, centralized_testset = get_dataset(args.num_clients)
 
     # Configure the strategy
-    strategy = fl.server.strategy.FedAvg(
-        fraction_fit=1,  # Sample 10% of available clients for training
-        fraction_evaluate=1,  # Sample 5% of available clients for evaluation
-        min_available_clients=2,
-        on_fit_config_fn=fit_config,
-        evaluate_metrics_aggregation_fn=evaluate_metrics_aggregation_fn,  # Aggregate federated metrics
-        evaluate_fn=get_evaluate_fn(centralized_testset),  # Global evaluation function
-        fit_metrics_aggregation_fn=fit_metrics_aggregation_fn,
-    )
+    # strategy = fl.server.strategy.FedAvg(
+    #     fraction_fit=1,  # Sample 10% of available clients for training
+    #     fraction_evaluate=1,  # Sample 5% of available clients for evaluation
+    #     min_available_clients=2,
+    #     on_fit_config_fn=fit_config,
+    #     evaluate_metrics_aggregation_fn=evaluate_metrics_aggregation_fn,  # Aggregate federated metrics
+    #     evaluate_fn=get_evaluate_fn(centralized_testset),  # Global evaluation function
+    #     fit_metrics_aggregation_fn=fit_metrics_aggregation_fn,
+    # )
 
     strategy = MIFL(
         fraction_fit=1,  # Sample 10% of available clients for training
@@ -263,6 +263,7 @@ def main():
         evaluate_fn=get_evaluate_fn(centralized_testset),  # Global evaluation function
         fit_metrics_aggregation_fn=fit_metrics_aggregation_fn,
         critical_value=0.25,
+        mi_type="mi_gauss",
     )
 
     # client = fl.client.ClientApp(

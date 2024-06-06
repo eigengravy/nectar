@@ -17,6 +17,7 @@ from flwr.common import (
     ndarrays_to_parameters,
     parameters_to_ndarrays,
 )
+import numpy as np
 
 
 class MIFL(FedAvg):
@@ -42,6 +43,7 @@ class MIFL(FedAvg):
         evaluate_metrics_aggregation_fn: Optional[MetricsAggregationFn] = None,
         inplace: bool = True,
         critical_value: float = 0.25,
+        mi_type: str = "mi_gauss",
     ) -> None:
         super().__init__(
             fraction_fit=fraction_fit,
@@ -59,6 +61,7 @@ class MIFL(FedAvg):
             inplace=inplace,
         )
         self.critical_value = critical_value
+        self.mi_type = mi_type
 
     def __repr__(self) -> str:
         """Compute a string representation of the strategy."""
@@ -78,7 +81,17 @@ class MIFL(FedAvg):
         if not self.accept_failures and failures:
             return None, {}
 
-        print("Aggregating fit results", results)
+        mi = [result[1].metrics[self.mi_type] for result in results]
+
+        lower_bound_mi = np.percentile(mi, self.critical_value * 100)
+        upper_bound_mi = np.percentile(mi, (1 - self.critical_value) * 100)
+        results = filter(
+            lambda result: lower_bound_mi
+            <= result[1].metrics[self.mi_type]
+            <= upper_bound_mi,
+            results,
+        )
+        print(f"Aggregating fit results ${len(results)}")
         if self.inplace:
             # Does in-place weighted average of results
             aggregated_ndarrays = aggregate_inplace(results)
