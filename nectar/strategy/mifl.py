@@ -88,16 +88,13 @@ class MIFL(FedAvg):
 
         if self.inplace:
             # Does in-place weighted average of results
-            aggregated_ndarrays = aggregate_inplace(
-                [
-                    results
-                    for results in results
-                    if lower_bound_mi
-                    <= results[1].metrics[self.mi_type]
-                    <= upper_bound_mi
-                ]
-            )
-            print(f"Aggregating fit results {len(results)}")
+            selected_results = [
+                results
+                for results in results
+                if lower_bound_mi <= results[1].metrics[self.mi_type] <= upper_bound_mi
+            ]
+            aggregated_ndarrays = aggregate_inplace(selected_results)
+            print(f"Aggregating fit results {len(selected_results)}")
         else:
             # Convert results
             weights_results = [
