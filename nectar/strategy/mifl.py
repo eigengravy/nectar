@@ -3,7 +3,8 @@ from flwr.server.strategy import FedAvg
 from flwr.server.strategy.aggregate import aggregate, aggregate_inplace
 from flwr.server.client_manager import ClientManager
 from flwr.server.client_proxy import ClientProxy
-from flwr.common.logger import log, WARNING
+from logging import WARNING
+from flwr.common.logger import log
 from flwr.common import (
     EvaluateIns,
     EvaluateRes,
