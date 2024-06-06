@@ -20,6 +20,7 @@ from flwr_datasets import FederatedDataset
 
 from nectar.models.tiny_imagenet import apply_transforms, get_dataset
 from nectar.models.tiny_imagenet.vgg16 import VGG16 as Net, train
+from nectar.strategy.mifl import MIFL
 from nectar.utils.model import test
 from nectar.utils.params import get_params, set_params
 
@@ -251,6 +252,17 @@ def main():
         evaluate_metrics_aggregation_fn=evaluate_metrics_aggregation_fn,  # Aggregate federated metrics
         evaluate_fn=get_evaluate_fn(centralized_testset),  # Global evaluation function
         fit_metrics_aggregation_fn=fit_metrics_aggregation_fn,
+    )
+
+    strategy = MIFL(
+        fraction_fit=1,  # Sample 10% of available clients for training
+        fraction_evaluate=1,  # Sample 5% of available clients for evaluation
+        min_available_clients=2,
+        on_fit_config_fn=fit_config,
+        evaluate_metrics_aggregation_fn=evaluate_metrics_aggregation_fn,  # Aggregate federated metrics
+        evaluate_fn=get_evaluate_fn(centralized_testset),  # Global evaluation function
+        fit_metrics_aggregation_fn=fit_metrics_aggregation_fn,
+        critical_value=0.25,
     )
 
     # client = fl.client.ClientApp(
