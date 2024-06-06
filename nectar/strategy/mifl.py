@@ -85,12 +85,12 @@ class MIFL(FedAvg):
 
         lower_bound_mi = np.percentile(mi, self.critical_value * 100)
         upper_bound_mi = np.percentile(mi, (1 - self.critical_value) * 100)
-        results = filter(
-            lambda result: lower_bound_mi
-            <= result[1].metrics[self.mi_type]
-            <= upper_bound_mi,
-            results,
-        )
+        results = [
+            results
+            for results in results
+            if lower_bound_mi <= results[1].metrics[self.mi_type] <= upper_bound_mi
+        ]
+
         print(f"Aggregating fit results ${len(results)}")
         if self.inplace:
             # Does in-place weighted average of results
