@@ -112,9 +112,10 @@ if __name__ == "__main__":
     # print(gaussian_entropy(tensor2))
     # print(gaussian_entropy2(tensor2))
 
-    Fg = torch.randn(10, 10)
+    Fg = 10 * torch.randn(10, 10)
     # tensor2 = torch.randn(100, 10)
-    Fk = Fg + torch.randn(10, 10) * 0.1
+    Fk = Fg + torch.randn(10, 10)
+    # Fk = torch.randn(1, 10).repeat(10, 1)
     # Calculate the standard deviation over the batch dimension
     sigma_g = torch.std(Fg, dim=0, keepdim=True)  # Shape: (1, n_params)
     sigma_k = torch.std(Fk, dim=0, keepdim=True)  # Shape: (1, n_params)

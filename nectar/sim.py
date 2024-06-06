@@ -237,6 +237,12 @@ def main():
     parser.add_argument("--num_clients", type=int, default=2, help="Number of clients")
     parser.add_argument("--num_rounds", type=int, default=2, help="Number of rounds")
 
+    # MIFL arguments
+    parser.add_argument(
+        "--critical_value", type=float, default=0.25, help="Critical value"
+    )
+    parser.add_argument("--mi_type", type=str, default="mi_cat", help="MI type")
+
     run_id = datetime.now().strftime("%d-%b-%H%M") + "-" + str(uuid.uuid4())[:8]
 
     args = parser.parse_args()
@@ -262,8 +268,8 @@ def main():
         evaluate_metrics_aggregation_fn=evaluate_metrics_aggregation_fn,  # Aggregate federated metrics
         evaluate_fn=get_evaluate_fn(centralized_testset),  # Global evaluation function
         fit_metrics_aggregation_fn=fit_metrics_aggregation_fn,
-        critical_value=0.25,
-        mi_type="mi_gauss",
+        critical_value=args.critical_value,
+        mi_type=args.mi_type,
     )
 
     # client = fl.client.ClientApp(
