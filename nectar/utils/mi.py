@@ -9,7 +9,7 @@ def categorical_entropy(tensor):
 
 
 def gaussian_entropy(tensor):
-    variance = torch.var(tensor, dim=-1) + 1e-6
+    variance = torch.var(tensor, dim=-1)
     entropy = 0.5 * (1 + torch.log(2 * torch.pi * variance))
     return entropy
 
