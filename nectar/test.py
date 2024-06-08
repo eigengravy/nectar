@@ -1,22 +1,18 @@
-from omegaconf import DictConfig, OmegaConf
-import hydra
+import torch
 
-from hydra.utils import instantiate
-from flwr_datasets import FederatedDataset
+from nectar.utils.mi import mutual_information
 
 
-@hydra.main(version_base=None, config_path="../config", config_name="base")
-def my_app(cfg):
-    print(OmegaConf.to_yaml(cfg))
+x = torch.randn(5, 3)  # Input tensor
+y = torch.randint(low=1, high=3, size=(5,))  # Target tensor
 
-    dataset = FederatedDataset(
-        dataset=cfg.dataset.name,
-        partitioners=dict(instantiate(cfg.partitioners)),
-    )
+print(y)
+# one hot encode y
+y = torch.nn.functional.one_hot(y, num_classes=3).float()
+print(y)
 
-    print(dataset)
-    print(dataset.load_partition(1))
+print(x.shape, x.dtype)
+print(y.shape, y.dtype)
 
-
-if __name__ == "__main__":
-    my_app()
+mi = mutual_information(x, y, dist_type="gaussian")
+print(mi)

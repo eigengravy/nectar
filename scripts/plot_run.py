@@ -138,7 +138,7 @@ def plot_metrics(run_id):
     )
     distributed_mi_gauss_data = read_csv(distributed_mi_gauss_file)
     plot_metric(
-        distributed_mi_gauss_data,
+        distributed_mi_gauss_data[5:],
         f"Distributed MI Gauss (Run ID: {run_id})",
         "MI Gauss",
         os.path.join(plots_dir, "metrics_distributed_fit__mi_gauss.png"),
@@ -158,8 +158,9 @@ def plot_metrics(run_id):
 
 if __name__ == "__main__":
     if len(sys.argv) < 2:
-        print("Usage: python script.py <run_id>")
+        print("Usage: python script.py <run_id1> <run_id2> ... <run_idN>")
         sys.exit(1)
 
-    run_id = sys.argv[1]
-    plot_metrics(run_id)
+    run_ids = sys.argv[1:]
+    for run_id in run_ids:
+        plot_metrics(run_id)
