@@ -308,7 +308,7 @@ def main():
         server_app=server,
         client_app=client,
         num_supernodes=1,
-        backend_config=client_resources,
+        backend_config={"client_resources": client_resources},
     )
 
     config["end_time"] = datetime.now().strftime("%H:%M:%S")
