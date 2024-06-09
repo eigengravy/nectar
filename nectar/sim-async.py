@@ -18,10 +18,11 @@ from datasets import Dataset
 from datasets.utils.logging import disable_progress_bar
 from flwr_datasets import FederatedDataset
 
-# from nectar.models.tiny_imagenet import apply_transforms, get_dataset
-# from nectar.models.tiny_imagenet.vgg16 import VGG16 as Net, train
-from nectar.models.mnist import apply_transforms, get_dataset
-from nectar.models.mnist.simplecnn import SimpleCNN as Net, train
+from nectar.models.tiny_imagenet import apply_transforms, get_dataset
+from nectar.models.tiny_imagenet.vgg16 import VGG16 as Net, train
+
+# from nectar.models.mnist import apply_transforms, get_dataset
+# from nectar.models.mnist.simplecnn import SimpleCNN as Net, train
 from nectar.strategy.mifl import MIFL
 from nectar.utils.model import test
 from nectar.utils.params import get_params, set_params
