@@ -27,9 +27,9 @@ from nectar.strategy.mifl import MIFL
 from nectar.utils.model import test
 from nectar.utils.params import get_params, set_params
 
-from ..flower_async.async_server import AsyncServer
-from ..flower_async.async_strategy import AsynchronousStrategy
-from ..flower_async.async_client_manager import AsyncClientManager
+from nectar.asyncfl.async_server import AsyncServer
+from nectar.asyncfl.async_strategy import AsyncStrategy
+from nectar.asyncfl.async_client_manager import AsyncClientManager
 
 
 # Flower client, adapted from Pytorch quickstart example
@@ -273,7 +273,7 @@ def main():
     server = AsyncServer(
         strategy=strategy,
         client_manager=AsyncClientManager(),
-        async_strategy=AsynchronousStrategy(
+        async_strategy=AsyncStrategy(
             async_aggregation_strategy="asyncfeded",
             total_samples=len(mnist_fds),
             alpha=0.5,
