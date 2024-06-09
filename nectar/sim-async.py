@@ -256,7 +256,9 @@ def main():
     strategy = fl.server.strategy.FedAvg(
         fraction_fit=1,  # Sample 10% of available clients for training
         fraction_evaluate=1,  # Sample 5% of available clients for evaluation
-        min_available_clients=2,
+        min_available_clients=args.num_clients,
+        min_fit_clients=args.num_clients,
+        min_evaluate_clients=args.num_clients,
         on_fit_config_fn=fit_config,
         evaluate_metrics_aggregation_fn=evaluate_metrics_aggregation_fn,  # Aggregate federated metrics
         evaluate_fn=get_evaluate_fn(centralized_testset),  # Global evaluation function
@@ -304,12 +306,16 @@ def main():
         "start_time": datetime.now().strftime("%H:%M:%S"),
     }
 
+    print("start")
+
     history = fl.simulation.run_simulation(
         server_app=server,
         client_app=client,
-        num_supernodes=1,
+        num_supernodes=args.num_clients,
         backend_config={"client_resources": client_resources},
     )
+
+    print("end")
 
     config["end_time"] = datetime.now().strftime("%H:%M:%S")
 
