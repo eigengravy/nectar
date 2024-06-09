@@ -45,7 +45,7 @@ from flwr.server.server import Server
 from .async_history import AsyncHistory
 
 from .async_client_manager import AsyncClientManager
-from .async_strategy import AsynchronousStrategy
+from .async_strategy import AsyncStrategy
 
 FitResultsAndFailures = Tuple[
     List[Tuple[ClientProxy, FitRes]],
@@ -67,7 +67,7 @@ class AsyncServer(Server):
     def __init__(
         self,
         strategy: Strategy,
-        client_manager: ClientManager, # AsyncClientManager,
+        client_manager: ClientManager,  # AsyncClientManager,
         async_strategy: AsynchronousStrategy,
         base_conf_dict,
         total_train_time: int = 85,
@@ -81,7 +81,9 @@ class AsyncServer(Server):
         self.strategy = strategy
         self._client_manager = client_manager
         self.max_workers = max_workers
-        self.client_data_percs: Dict[str, List[float]] = {} # dictionary tracking the data percentages sent to the client
+        self.client_data_percs: Dict[str, List[float]] = (
+            {}
+        )  # dictionary tracking the data percentages sent to the client
         for key, value in base_conf_dict.items():
             setattr(self, key, value)
         self.start_timestamp = 0.0
@@ -128,13 +130,13 @@ class AsyncServer(Server):
             timeout=timeout,
             executor=executor,
             end_timestamp=end_timestamp,
-            history=history
+            history=history,
         )
         while time() - start_time < self.total_train_time:
             # If the clients are to be started periodically, move fit_round here and remove the executor.submit lines from _handle_finished_future_after_fit
             sleep(self.waiting_interval)
             self.evaluate_centralized(counter, history)
-            #self.evaluate_decentralized(counter, history, timeout)
+            # self.evaluate_decentralized(counter, history, timeout)
             counter += 1
 
         executor.shutdown(wait=True, cancel_futures=True)
@@ -145,48 +147,39 @@ class AsyncServer(Server):
         return history
 
     def evaluate_centralized(self, current_round: int, history: History):
-        res_cen = self.strategy.evaluate(
-            current_round, parameters=self.parameters)
+        res_cen = self.strategy.evaluate(current_round, parameters=self.parameters)
         if res_cen is not None:
             loss_cen, metrics_cen = res_cen
-            metrics_cen['end_timestamp'] = self.end_timestamp
-            metrics_cen['start_timestamp'] = self.start_timestamp
-            history.add_loss_centralized(
-                timestamp=time(), loss=loss_cen)
-            history.add_metrics_centralized(
-                timestamp=time(), metrics=metrics_cen
-            )
+            metrics_cen["end_timestamp"] = self.end_timestamp
+            metrics_cen["start_timestamp"] = self.start_timestamp
+            history.add_loss_centralized(timestamp=time(), loss=loss_cen)
+            history.add_metrics_centralized(timestamp=time(), metrics=metrics_cen)
 
     def evaluate_centralized_async(self, history: AsyncHistory):
-        res_cen = self.strategy.evaluate(
-            0, parameters=self.parameters)
+        res_cen = self.strategy.evaluate(0, parameters=self.parameters)
         if res_cen is not None:
             loss_cen, metrics_cen = res_cen
-            metrics_cen['end_timestamp'] = self.end_timestamp
-            metrics_cen['start_timestamp'] = self.start_timestamp
-            history.add_loss_centralized_async(
-                timestamp=time(), loss=loss_cen)
-            history.add_metrics_centralized_async(
-                timestamp=time(), metrics=metrics_cen
-            )
+            metrics_cen["end_timestamp"] = self.end_timestamp
+            metrics_cen["start_timestamp"] = self.start_timestamp
+            history.add_loss_centralized_async(timestamp=time(), loss=loss_cen)
+            history.add_metrics_centralized_async(timestamp=time(), metrics=metrics_cen)
 
-    def evaluate_decentralized(self, current_round: int, history: History, timeout: Optional[float]):
+    def evaluate_decentralized(
+        self, current_round: int, history: History, timeout: Optional[float]
+    ):
         """Evaluate model on a sample of available clients
         NOTE: Only call this method if clients are started periodically.
         This is not to be called if the clients are starting immediately after they finish! This is because the ray actor cannot process
         two concurrent requests to the same client. They get mixed up and future.result() in client_fit can return an
         EvaluateRes instead of FitRes.
         """
-        res_fed = self.evaluate_round(
-            server_round=current_round, timeout=timeout)
+        res_fed = self.evaluate_round(server_round=current_round, timeout=timeout)
         if res_fed is not None:
             loss_fed, evaluate_metrics_fed, (results, _) = res_fed
             if loss_fed is not None:
                 client_ids = [client.cid for client, _ in results]
-                evaluate_metrics_fed['client_ids'] = client_ids
-                history.add_loss_distributed(
-                    timestamp=time(), loss=loss_fed
-                )
+                evaluate_metrics_fed["client_ids"] = client_ids
+                history.add_loss_distributed(timestamp=time(), loss=loss_fed)
                 history.add_metrics_distributed(
                     timestamp=time(), metrics=evaluate_metrics_fed
                 )
@@ -256,7 +249,10 @@ class AsyncServer(Server):
             client_manager=self._client_manager,
         )
         for client_proxy, fitins in client_instructions:
-            fitins.config = { **fitins.config, **self.get_config_for_client_fit(client_proxy.cid) }
+            fitins.config = {
+                **fitins.config,
+                **self.get_config_for_client_fit(client_proxy.cid),
+            }
 
         if not client_instructions:
             log(INFO, "fit_round %s: no clients selected, cancel", server_round)
@@ -287,15 +283,21 @@ class AsyncServer(Server):
         if curr_timestamp > self.end_timestamp:
             return config
         if client_id not in self.client_data_percs:
-            self.client_data_percs[client_id] = [0.0] # Clients start with 10% of the data (otherwise called with 0 samples)
+            self.client_data_percs[client_id] = [
+                0.0
+            ]  # Clients start with 10% of the data (otherwise called with 0 samples)
         prev_data_perc = self.client_data_percs[client_id][-1]
         start_timestamp = self.end_timestamp - self.total_train_time
-        data_perc = ( (time() - start_timestamp) / self.total_train_time ) * 0.9 + 0.1 # Linearly increase the data percentage from 10% to 100% over the total_train_time
-        config['data_percentage'] = data_perc
-        config['prev_data_percentage'] = prev_data_perc
-        config['data_loading_strategy'] = self.data_loading_strategy
-        if self.data_loading_strategy == 'fixed_nr':
-            config['n_last_samples_for_data_loading_fit'] = self.n_last_samples_for_data_loading_fit
+        data_perc = (
+            (time() - start_timestamp) / self.total_train_time
+        ) * 0.9 + 0.1  # Linearly increase the data percentage from 10% to 100% over the total_train_time
+        config["data_percentage"] = data_perc
+        config["prev_data_percentage"] = prev_data_perc
+        config["data_loading_strategy"] = self.data_loading_strategy
+        if self.data_loading_strategy == "fixed_nr":
+            config["n_last_samples_for_data_loading_fit"] = (
+                self.n_last_samples_for_data_loading_fit
+            )
         self.client_data_percs[client_id].append(data_perc)
         return config
 
@@ -304,8 +306,7 @@ class AsyncServer(Server):
         all_clients = self._client_manager.all()
         clients = [all_clients[k] for k in all_clients.keys()]
         instruction = ReconnectIns(seconds=None)
-        client_instructions = [(client_proxy, instruction)
-                               for client_proxy in clients]
+        client_instructions = [(client_proxy, instruction) for client_proxy in clients]
         _ = reconnect_clients(
             client_instructions=client_instructions,
             max_workers=self.max_workers,
@@ -326,8 +327,7 @@ class AsyncServer(Server):
         log(INFO, "Requesting initial parameters from one random client")
         random_client = self._client_manager.sample(1)[0]
         ins = GetParametersIns(config={})
-        get_parameters_res = random_client.get_parameters(
-            ins=ins, timeout=timeout)
+        get_parameters_res = random_client.get_parameters(ins=ins, timeout=timeout)
         log(INFO, "Received initial parameters from one random client")
         return get_parameters_res.parameters
 
@@ -351,8 +351,7 @@ def reconnect_clients(
 
     # Gather results
     results: List[Tuple[ClientProxy, DisconnectRes]] = []
-    failures: List[Union[Tuple[ClientProxy,
-                               DisconnectRes], BaseException]] = []
+    failures: List[Union[Tuple[ClientProxy, DisconnectRes], BaseException]] = []
     for future in finished_fs:
         failure = future.exception()
         if failure is not None:
@@ -378,9 +377,7 @@ def reconnect_client(
 
 def handle_futures(futures, server):
     for future in futures:
-        _handle_finished_future_after_fit(
-            future=future, server=server
-        )
+        _handle_finished_future_after_fit(future=future, server=server)
 
 
 def fit_clients(
@@ -399,7 +396,13 @@ def fit_clients(
     }
     for f in submitted_fs:
         f.add_done_callback(
-            lambda ftr: _handle_finished_future_after_fit(ftr, server=server, executor=executor, end_timestamp=end_timestamp, history=history),
+            lambda ftr: _handle_finished_future_after_fit(
+                ftr,
+                server=server,
+                executor=executor,
+                end_timestamp=end_timestamp,
+                history=history,
+            ),
         )
 
 
@@ -430,29 +433,42 @@ def _handle_finished_future_after_fit(
     result: Tuple[ClientProxy, FitRes] = future.result()
     clientProxy, res = result
 
-    #server.client_manager().set_client_to_free(clientProxy.cid)
+    # server.client_manager().set_client_to_free(clientProxy.cid)
     process_start = time()
     # Check result status code
     if res.status.code == Code.OK:
         parameters_aggregated = server.async_strategy.average(
-            server.parameters, res.parameters, res.metrics['t_diff'], res.num_examples)
+            server.parameters, res.parameters, res.metrics["t_diff"], res.num_examples
+        )
         server.set_new_params(parameters_aggregated)
-        
+
         history.add_metrics_distributed_fit_async(
-            clientProxy.cid,{"sample_sizes": res.num_examples, **res.metrics }, timestamp=time()
+            clientProxy.cid,
+            {"sample_sizes": res.num_examples, **res.metrics},
+            timestamp=time(),
         )
         # server.evaluate_centralized_async(history) # Evaluate the global model after the merge
 
     process_end = time()
-    log(DEBUG, f"Time taken to process the result: {process_end - process_start} seconds")    
+    log(
+        DEBUG,
+        f"Time taken to process the result: {process_end - process_start} seconds",
+    )
     if time() < end_timestamp:
         log(DEBUG, f"Yippie! Starting the client {clientProxy.cid} again \U0001f973")
-        new_ins = FitIns(server.parameters, server.get_config_for_client_fit(clientProxy.cid))
+        new_ins = FitIns(
+            server.parameters, server.get_config_for_client_fit(clientProxy.cid)
+        )
         ftr = executor.submit(fit_client, client=clientProxy, ins=new_ins, timeout=None)
-        ftr.add_done_callback(lambda ftr: _handle_finished_future_after_fit(ftr, server, executor, end_timestamp, history))
+        ftr.add_done_callback(
+            lambda ftr: _handle_finished_future_after_fit(
+                ftr, server, executor, end_timestamp, history
+            )
+        )
 
 
 ############################### FOR EVALUATION ####################################
+
 
 def evaluate_clients(
     client_instructions: List[Tuple[ClientProxy, EvaluateIns]],
