@@ -269,7 +269,7 @@ def main():
         fit_metrics_aggregation_fn=fit_metrics_aggregation_fn,
     )
 
-    print(f"Dataset size: {len(mnist_fds)}")
+    print(f"Dataset size: {len(mnist_fds._dataset)}")
     server = AsyncServer(
         strategy=strategy,
         client_manager=AsyncClientManager(),
