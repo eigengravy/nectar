@@ -27,6 +27,10 @@ from nectar.strategy.mifl import MIFL
 from nectar.utils.model import test
 from nectar.utils.params import get_params, set_params
 
+from ..flower_async.async_server import AsyncServer
+from ..flower_async.async_strategy import AsynchronousStrategy
+from ..flower_async.async_client_manager import AsyncClientManager
+
 
 # Flower client, adapted from Pytorch quickstart example
 class FlowerClient(fl.client.NumPyClient):
@@ -265,10 +269,22 @@ def main():
         fit_metrics_aggregation_fn=fit_metrics_aggregation_fn,
     )
 
-    # server = AsyncServer(
-    # strategy=FedAvg(<customized>),
-    # client_manager=AsyncClientManager(),
-    # async_strategy=AsynchronousStrategy(<customized>))
+    print(f"Dataset size: {len(mnist_fds)}")
+    server = AsyncServer(
+        strategy=strategy,
+        client_manager=AsyncClientManager(),
+        async_strategy=AsynchronousStrategy(
+            async_aggregation_strategy="asyncfeded",
+            total_samples=len(mnist_fds),
+            alpha=0.5,
+            staleness_alpha=0.5,
+            fedasync_mixing_alpha=0.5,
+            fedasync_a=0.5,
+            num_clients=args.num_clients,
+            use_staleness=True,
+            use_sample_weighing=True,
+        ),
+    )
 
     # strategy = MIFL(
     #     fraction_fit=1,  # Sample 10% of available clients for training
@@ -289,10 +305,10 @@ def main():
     )
 
     # ServerApp for Flower-Next
-    server = fl.server.ServerApp(
-        config=fl.server.ServerConfig(num_rounds=args.num_rounds),
-        strategy=strategy,
-    )
+    # server = fl.server.ServerApp(
+    #     config=fl.server.ServerConfig(num_rounds=args.num_rounds),
+    #     strategy=strategy,
+    # )
 
     client_resources = {
         "num_cpus": args.num_cpus,
