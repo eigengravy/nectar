@@ -68,7 +68,7 @@ class AsyncServer(Server):
         self,
         strategy: Strategy,
         client_manager: ClientManager,  # AsyncClientManager,
-        async_strategy: AsynchronousStrategy,
+        async_strategy: AsyncStrategy,
         base_conf_dict,
         total_train_time: int = 85,
         waiting_interval: int = 5,
