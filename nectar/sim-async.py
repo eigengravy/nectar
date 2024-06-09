@@ -275,7 +275,7 @@ def main():
         client_manager=AsyncClientManager(),
         async_strategy=AsyncStrategy(
             async_aggregation_strategy="asyncfeded",
-            total_samples=len(mnist_fds),
+            total_samples=len(mnist_fds._dataset),
             alpha=0.5,
             staleness_alpha=0.5,
             fedasync_mixing_alpha=0.5,
