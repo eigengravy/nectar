@@ -284,6 +284,7 @@ def main():
             use_staleness=True,
             use_sample_weighing=True,
         ),
+        base_conf_dict={},
     )
 
     # strategy = MIFL(
