@@ -192,7 +192,7 @@ def save_history(history, run_id):
 
     if history.metrics_distributed_fit_async:
         for metric in history.metrics_distributed_fit_async:
-            for client in history.metrics_centralized_async[metric]:
+            for client in history.metrics_distributed_fit_async[metric]:
                 with open(
                     f"runs/{run_id}/metrics_distributed_fit_async_{metric}_{client}.csv",
                     "a+",
