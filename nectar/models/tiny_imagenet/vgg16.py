@@ -158,8 +158,8 @@ def train(student, trainloader, optim, epochs, device: str):
                 )
 
             ce_loss = criterion(student_logits, labels)
-            # dist_loss = distiller(student_logits, teacher_logits, labels)
-            dist_loss = distiller(student_logits, teacher_logits)
+            dist_loss = distiller(student_logits, teacher_logits, labels)
+            # dist_loss = distiller(student_logits, teacher_logits)
             print(f"CE Loss: {ce_loss.item()}, Distill Loss: {dist_loss.item()}")
             loss = ce_loss + dist_loss
             # loss = criterion(student_logits, labels) + distiller(
