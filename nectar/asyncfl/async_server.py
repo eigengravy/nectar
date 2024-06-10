@@ -423,7 +423,9 @@ def fit_client(
     client: ClientProxy, ins: FitIns, timeout: Optional[float], group_id: int
 ) -> Tuple[ClientProxy, FitRes]:
     """Refine parameters on a single client."""
+    print(f"START FIT >> client: {client.cid} | round: {group_id}")
     fit_res = client.fit(ins, timeout=timeout, group_id=group_id)
+    print(f"END FIT >> client: {client.cid} | round: {group_id}")
     return client, fit_res
 
 
@@ -444,10 +446,10 @@ def _handle_finished_future_after_fit(
         print("Got a failure :(")
         return
 
-    print("Got a result :)")
+    # print("Got a result :)")
     result: Tuple[ClientProxy, FitRes] = future.result()
     clientProxy, res = result
-    print("Round", clientProxy.cid, group_id)
+    # print("Round", clientProxy.cid, group_id)
     # server.client_manager().set_client_to_free(clientProxy.cid)
     process_start = time()
     # Check result status code
@@ -487,7 +489,7 @@ def _handle_finished_future_after_fit(
                 ftr, server, executor, end_timestamp, history, group_id + 1
             )
         )
-    print("exited")
+    # print("exited")
 
 
 ############################### FOR EVALUATION ####################################
