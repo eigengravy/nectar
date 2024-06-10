@@ -285,6 +285,7 @@ def main():
             use_sample_weighing=True,
         ),
         base_conf_dict={},
+        max_workers=args.num_clients,
     )
 
     # strategy = MIFL(
