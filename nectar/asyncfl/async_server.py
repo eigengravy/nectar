@@ -125,14 +125,17 @@ class AsyncServer(Server):
         self.end_timestamp = end_timestamp
         self.start_timestamp = time()
         counter = 1
+
         self.fit_round(
-            server_round=0,
+            server_round=1,
             timeout=timeout,
             executor=executor,
             end_timestamp=end_timestamp,
             history=history,
         )
+
         while time() - start_time < self.total_train_time:
+
             # If the clients are to be started periodically, move fit_round here and remove the executor.submit lines from _handle_finished_future_after_fit
             sleep(self.waiting_interval)
             self.evaluate_centralized(counter, history)
@@ -248,6 +251,7 @@ class AsyncServer(Server):
             parameters=self.parameters,
             client_manager=self._client_manager,
         )
+        print(f"Client instructions: {client_instructions}")
         for client_proxy, fitins in client_instructions:
             fitins.config = {
                 **fitins.config,

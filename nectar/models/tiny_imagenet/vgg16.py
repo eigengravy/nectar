@@ -4,6 +4,7 @@ import torch.nn.functional as F
 import copy
 
 from nectar.loss.cosine import CosineLoss
+from nectar.loss.dkd import DKDLoss
 from nectar.loss.jsd import JSDLoss
 from nectar.loss.kl import DistillLoss
 from nectar.loss.ntd import NTDLoss
@@ -127,7 +128,8 @@ def train(student, trainloader, optim, epochs, device: str):
     # distiller = DistillLoss(temp=3.0, gamma=0.5)
     # distiller = CosineLoss(gamma=0.5)
     # distiller = JSDLoss(gamma=0.5)
-    distiller = NKDLoss()
+    # distiller = NKDLoss()
+    distiller = DKDLoss()
     mi_gauss, mi_cat = 0, 0
     for _ in range(epochs):
         for batch in trainloader:

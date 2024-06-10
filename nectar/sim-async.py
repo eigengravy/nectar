@@ -18,11 +18,11 @@ from datasets import Dataset
 from datasets.utils.logging import disable_progress_bar
 from flwr_datasets import FederatedDataset
 
-from nectar.models.tiny_imagenet import apply_transforms, get_dataset
-from nectar.models.tiny_imagenet.vgg16 import VGG16 as Net, train
+# from nectar.models.tiny_imagenet import apply_transforms, get_dataset
+# from nectar.models.tiny_imagenet.vgg16 import VGG16 as Net, train
 
-# from nectar.models.mnist import apply_transforms, get_dataset
-# from nectar.models.mnist.simplecnn import SimpleCNN as Net, train
+from nectar.models.mnist import apply_transforms, get_dataset
+from nectar.models.mnist.simplecnn import SimpleCNN as Net, train
 from nectar.strategy.mifl import MIFL
 from nectar.utils.model import test
 from nectar.utils.params import get_params, set_params
@@ -285,7 +285,9 @@ def main():
             use_sample_weighing=True,
         ),
         base_conf_dict={},
-        max_workers=args.num_clients,
+        max_workers=2 * args.num_clients,
+        total_train_time=850,
+        waiting_interval=50,
     )
 
     # strategy = MIFL(
@@ -340,6 +342,7 @@ def main():
         server=server,
         config=fl.server.ServerConfig(num_rounds=args.num_rounds),
         # strategy=strategy,
+        # client_manager=AsyncClientManager(),
         actor_kwargs={"on_actor_init_fn": disable_progress_bar},
     )
 

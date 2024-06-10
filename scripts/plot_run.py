@@ -163,4 +163,5 @@ if __name__ == "__main__":
 
     run_ids = sys.argv[1:]
     for run_id in run_ids:
+        print(f"Plotting metrics for {run_id}")
         plot_metrics(run_id)
