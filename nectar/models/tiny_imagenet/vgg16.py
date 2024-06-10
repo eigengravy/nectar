@@ -127,12 +127,12 @@ def train(student, trainloader, optim, epochs, device: str):
     teacher.eval()
     student.to(device)
     student.train()
-    # distiller = NTDLoss(temp=5.0, gamma=0.5)
+    distiller = NTDLoss(temp=5.0, gamma=0.5)
     # distiller = DistillLoss(temp=3.0, gamma=0.5)
     # distiller = CosineLoss(gamma=0.5)
     # distiller = JSDLoss(gamma=0.5)
     # distiller = NKDLoss()
-    distiller = RKDLoss()
+    # distiller = RKDLoss()
     mi_gauss, mi_cat = 0, 0
     for _ in range(epochs):
         for batch in trainloader:
