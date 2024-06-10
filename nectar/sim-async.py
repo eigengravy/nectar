@@ -201,12 +201,14 @@ def save_history(history, run_id):
 
     if history.metrics_centralized_async:
         for metric in history.metrics_centralized_async:
-            with open(
-                f"runs/{run_id}/metrics_centralized_async_{metric}.csv", "a+"
-            ) as f:
-                writer = csv.writer(f)
-                writer.writerow(["round", metric])
-                writer.writerows(history.metrics_centralized_async[metric])
+            for client in history.metrics_centralized_async[metric]:
+                with open(
+                    f"runs/{run_id}/metrics_centralized_async_{metric}_{client}.csv",
+                    "a+",
+                ) as f:
+                    writer = csv.writer(f)
+                    writer.writerow(["round", metric])
+                    writer.writerows(history.metrics_centralized_async[metric])
 
     if history.losses_centralized_async:
         with open(f"runs/{run_id}/losses_centralized_async.csv", "a+") as f:
