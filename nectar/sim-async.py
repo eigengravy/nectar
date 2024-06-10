@@ -18,11 +18,11 @@ from datasets import Dataset
 from datasets.utils.logging import disable_progress_bar
 from flwr_datasets import FederatedDataset
 
-# from nectar.models.tiny_imagenet import apply_transforms, get_dataset
-# from nectar.models.tiny_imagenet.vgg16 import VGG16 as Net, train
+from nectar.models.tiny_imagenet import apply_transforms, get_dataset
+from nectar.models.tiny_imagenet.vgg16 import VGG16 as Net, train
 
-from nectar.models.mnist import apply_transforms, get_dataset
-from nectar.models.mnist.simplecnn import SimpleCNN as Net, train
+# from nectar.models.mnist import apply_transforms, get_dataset
+# from nectar.models.mnist.simplecnn import SimpleCNN as Net, train
 from nectar.strategy.mifl import MIFL
 from nectar.utils.model import test
 from nectar.utils.params import get_params, set_params
@@ -190,6 +190,30 @@ def save_history(history, run_id):
                 writer.writerow(["round", metric])
                 writer.writerows(history.metrics_centralized[metric])
 
+    if history.metrics_distributed_fit_async:
+        for metric in history.metrics_distributed_fit_async:
+            with open(
+                f"runs/{run_id}/metrics_distributed_fit_async_{metric}.csv", "a+"
+            ) as f:
+                writer = csv.writer(f)
+                writer.writerow(["round", metric])
+                writer.writerows(history.metrics_distributed_fit_async[metric])
+
+    if history.metrics_centralized_async:
+        for metric in history.metrics_centralized_async:
+            with open(
+                f"runs/{run_id}/metrics_centralized_async_{metric}.csv", "a+"
+            ) as f:
+                writer = csv.writer(f)
+                writer.writerow(["round", metric])
+                writer.writerows(history.metrics_centralized_async[metric])
+
+    if history.losses_centralized_async:
+        with open(f"runs/{run_id}/losses_centralized_async.csv", "a+") as f:
+            writer = csv.writer(f)
+            writer.writerow(["round", "loss"])
+            writer.writerows(history.losses_centralized_async)
+
     with open(f"runs/{run_id}/history.txt", "w") as f:
         f.write(repr(history))
 
@@ -281,12 +305,14 @@ def main():
             fedasync_mixing_alpha=0.5,
             fedasync_a=0.5,
             num_clients=args.num_clients,
-            use_staleness=True,
-            use_sample_weighing=True,
+            use_staleness=False,
+            use_sample_weighing=False,
         ),
-        base_conf_dict={},
+        base_conf_dict={
+            "is_streaming": False,
+        },
         max_workers=2 * args.num_clients,
-        total_train_time=850,
+        total_train_time=60,
         waiting_interval=50,
     )
 

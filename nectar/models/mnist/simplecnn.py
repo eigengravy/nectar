@@ -1,3 +1,4 @@
+import time
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
@@ -35,7 +36,8 @@ def train(student, trainloader, optim, epochs, device: str):
     teacher.eval()
     student.to(device)
     student.train()
-    distiller = DistillLoss(temp=3.0, gamma=0.5)
+    start = time.time()
+    # distiller = DistillLoss(temp=3.0, gamma=0.5)
     mi_gauss, mi_cat = 0, 0
     for _ in range(epochs):
         for batch in trainloader:
@@ -43,12 +45,13 @@ def train(student, trainloader, optim, epochs, device: str):
             optim.zero_grad()
             student_logits = student(images)
             teacher_logits = teacher(images)
-            loss = criterion(student_logits, labels) + distiller(
-                student_logits, teacher_logits
-            )
+            loss = criterion(student_logits, labels)
+            # + distiller(
+            #     student_logits, teacher_logits
+            # )
             loss.backward()
             optim.step()
-
+            # print("Loss", loss)
             with torch.no_grad():
                 mi_gauss += (
                     mutual_information(
@@ -71,5 +74,6 @@ def train(student, trainloader, optim, epochs, device: str):
         "accuracy": train_acc,
         "mi_gauss": mi_gauss,
         "mi_cat": mi_cat,
+        "t_diff": time.time() - start,
     }
     return results

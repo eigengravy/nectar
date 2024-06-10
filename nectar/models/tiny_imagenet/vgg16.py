@@ -1,4 +1,5 @@
 import torch
+import time
 import torch.nn as nn
 import torch.nn.functional as F
 import copy
@@ -119,6 +120,7 @@ class VGG16(nn.Module):
 
 
 def train(student, trainloader, optim, epochs, device: str):
+    start = time.time()
     criterion = torch.nn.CrossEntropyLoss()
     teacher = copy.deepcopy(student)
     teacher.to(device)
@@ -182,5 +184,6 @@ def train(student, trainloader, optim, epochs, device: str):
         "accuracy": train_acc,
         "mi_gauss": mi_gauss / len(trainloader.dataset),
         "mi_cat": mi_cat / len(trainloader.dataset),
+        "t_diff": time.time() - start,
     }
     return results

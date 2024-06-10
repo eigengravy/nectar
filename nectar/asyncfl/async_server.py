@@ -135,9 +135,8 @@ class AsyncServer(Server):
         )
 
         while time() - start_time < self.total_train_time:
-
-            # If the clients are to be started periodically, move fit_round here and remove the executor.submit lines from _handle_finished_future_after_fit
             sleep(self.waiting_interval)
+            print("Starting the next set of clients", counter)
             self.evaluate_centralized(counter, history)
             # self.evaluate_decentralized(counter, history, timeout)
             counter += 1
@@ -147,7 +146,7 @@ class AsyncServer(Server):
         end_time = time()
         elapsed = end_time - start_time
         log(INFO, "FL finished in %s", elapsed)
-        return history
+        return history, elapsed
 
     def evaluate_centralized(self, current_round: int, history: History):
         res_cen = self.strategy.evaluate(current_round, parameters=self.parameters)
@@ -251,7 +250,7 @@ class AsyncServer(Server):
             parameters=self.parameters,
             client_manager=self._client_manager,
         )
-        print(f"Client instructions: {client_instructions}")
+
         for client_proxy, fitins in client_instructions:
             fitins.config = {
                 **fitins.config,
@@ -277,11 +276,13 @@ class AsyncServer(Server):
             executor=executor,
             end_timestamp=end_timestamp,
             history=history,
+            group_id=server_round,
         )
 
     def get_config_for_client_fit(self, client_id):
-        config = {}
+        config = {"epochs": 2, "batch_size": 64}
         if not self.is_streaming:
+            # return self.strategy.get_config_for_client_fit(
             return config
         curr_timestamp = time()
         if curr_timestamp > self.end_timestamp:
@@ -336,6 +337,8 @@ class AsyncServer(Server):
         get_parameters_res = random_client.get_parameters(
             ins=ins, timeout=timeout, group_id=server_round
         )
+        self._client_manager.set_client_to_free(random_client.cid)
+
         log(INFO, "Received initial parameters from one random client")
         return get_parameters_res.parameters
 
@@ -395,11 +398,12 @@ def fit_clients(
     executor: ThreadPoolExecutor,
     end_timestamp: float,
     history: AsyncHistory,
+    group_id: int,
 ):
     """Refine parameters concurrently on all selected clients."""
 
     submitted_fs = {
-        executor.submit(fit_client, client_proxy, ins, timeout)
+        executor.submit(fit_client, client_proxy, ins, timeout, group_id)
         for client_proxy, ins in client_instructions
     }
     for f in submitted_fs:
@@ -410,15 +414,16 @@ def fit_clients(
                 executor=executor,
                 end_timestamp=end_timestamp,
                 history=history,
+                group_id=group_id,
             ),
         )
 
 
 def fit_client(
-    client: ClientProxy, ins: FitIns, timeout: Optional[float]
+    client: ClientProxy, ins: FitIns, timeout: Optional[float], group_id: int
 ) -> Tuple[ClientProxy, FitRes]:
     """Refine parameters on a single client."""
-    fit_res = client.fit(ins, timeout=timeout)
+    fit_res = client.fit(ins, timeout=timeout, group_id=group_id)
     return client, fit_res
 
 
@@ -428,19 +433,21 @@ def _handle_finished_future_after_fit(
     executor: ThreadPoolExecutor,
     end_timestamp: float,
     history: AsyncHistory,
+    group_id: int,
 ) -> None:
     """Convert finished future into either a result or a failure."""
     # Check if there was an exception
 
     failure = future.exception()
     if failure is not None:
+        print(failure)
         print("Got a failure :(")
         return
 
     print("Got a result :)")
     result: Tuple[ClientProxy, FitRes] = future.result()
     clientProxy, res = result
-
+    print("Round", clientProxy.cid, group_id)
     # server.client_manager().set_client_to_free(clientProxy.cid)
     process_start = time()
     # Check result status code
@@ -455,7 +462,8 @@ def _handle_finished_future_after_fit(
             {"sample_sizes": res.num_examples, **res.metrics},
             timestamp=time(),
         )
-        # server.evaluate_centralized_async(history) # Evaluate the global model after the merge
+        server.evaluate_centralized_async(history)
+        # Evaluate the global model after the merge
 
     process_end = time()
     log(
@@ -467,12 +475,19 @@ def _handle_finished_future_after_fit(
         new_ins = FitIns(
             server.parameters, server.get_config_for_client_fit(clientProxy.cid)
         )
-        ftr = executor.submit(fit_client, client=clientProxy, ins=new_ins, timeout=None)
+        ftr = executor.submit(
+            fit_client,
+            client=clientProxy,
+            ins=new_ins,
+            timeout=None,
+            group_id=group_id + 1,
+        )
         ftr.add_done_callback(
             lambda ftr: _handle_finished_future_after_fit(
-                ftr, server, executor, end_timestamp, history
+                ftr, server, executor, end_timestamp, history, group_id + 1
             )
         )
+    print("exited")
 
 
 ############################### FOR EVALUATION ####################################

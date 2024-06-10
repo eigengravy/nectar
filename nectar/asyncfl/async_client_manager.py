@@ -24,7 +24,6 @@ class AsyncClientManager(SimpleClientManager):
             log(ERROR, "Client not found in free_clients")
             return False
         else:
-            print("Setting to busy Clients", client_id, self.free_clients)
             with self._cv_free:
                 self.free_clients.pop(client_id)
                 self._cv_free.notify_all()
@@ -38,14 +37,11 @@ class AsyncClientManager(SimpleClientManager):
             with self._cv_free:
                 self.free_clients[client_id] = self.clients[client_id]
                 self._cv_free.notify_all()
-                print("Free Clients", client_id, self.free_clients)
             return True
 
     # waits for `num_free_clients` to be free
     def wait_for_free(self, num_free_clients: int, timeout: int = 86400) -> bool:
-        print("45:Free Clients", self.free_clients)
         with self._cv_free:
-            print("47:Free Clients", self.free_clients)
             return self._cv_free.wait_for(
                 lambda: len(self.free_clients) >= num_free_clients, timeout=5
             )
