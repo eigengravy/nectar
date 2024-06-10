@@ -9,6 +9,7 @@ from nectar.loss.jsd import JSDLoss
 from nectar.loss.kl import DistillLoss
 from nectar.loss.ntd import NTDLoss
 from nectar.loss.nkd import NKDLoss
+from nectar.loss.rkd import RKDLoss
 from nectar.utils.mi import normalized_mutual_information, mutual_information
 from nectar.utils.model import test
 
@@ -129,7 +130,7 @@ def train(student, trainloader, optim, epochs, device: str):
     # distiller = CosineLoss(gamma=0.5)
     # distiller = JSDLoss(gamma=0.5)
     # distiller = NKDLoss()
-    distiller = DKDLoss()
+    distiller = RKDLoss()
     mi_gauss, mi_cat = 0, 0
     for _ in range(epochs):
         for batch in trainloader:
@@ -155,14 +156,14 @@ def train(student, trainloader, optim, epochs, device: str):
                 )
 
             ce_loss = criterion(student_logits, labels)
-            dist_loss = distiller(student_logits, teacher_logits, labels)
-            # dist_loss = distiller(student_logits, teacher_logits)
+            # dist_loss = distiller(student_logits, teacher_logits, labels)
+            dist_loss = distiller(student_logits, teacher_logits)
             print(f"CE Loss: {ce_loss.item()}, Distill Loss: {dist_loss.item()}")
-            # loss = ce_loss + dist_loss
+            loss = ce_loss + dist_loss
             # loss = criterion(student_logits, labels) + distiller(
             #     student_logits, teacher_logits, labels
             # )
-            loss = dist_loss
+            # loss = dist_loss
 
             # one_hot_labels = F.one_hot(labels, num_classes=200).float()
             # gamma = 0.5
