@@ -301,9 +301,9 @@ def main():
     #     mi_type=args.mi_type,
     # )
 
-    client = fl.client.ClientApp(
-        client_fn=get_client_fn(mnist_fds),
-    )
+    # client = fl.client.ClientApp(
+    #     client_fn=get_client_fn(mnist_fds),
+    # )
 
     # ServerApp for Flower-Next
     # server = fl.server.ServerApp(
@@ -325,11 +325,21 @@ def main():
 
     print("start")
 
-    history = fl.simulation.run_simulation(
-        server_app=server,
-        client_app=client,
-        num_supernodes=args.num_clients,
-        backend_config={"client_resources": client_resources},
+    # history = fl.simulation.run_simulation(
+    #     server_app=server,
+    #     client_app=client,
+    #     num_supernodes=args.num_clients,
+    #     backend_config={"client_resources": client_resources},
+    # )
+
+    history = fl.simulation.start_simulation(
+        client_fn=get_client_fn(mnist_fds),
+        num_clients=args.num_clients,
+        client_resources=client_resources,
+        server=server,
+        config=fl.server.ServerConfig(num_rounds=args.num_rounds),
+        strategy=strategy,
+        actor_kwargs={"on_actor_init_fn": disable_progress_bar},
     )
 
     print("end")
