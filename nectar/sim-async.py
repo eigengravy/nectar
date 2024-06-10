@@ -317,7 +317,7 @@ def main():
             "is_streaming": False,
         },
         max_workers=2 * args.num_clients,
-        total_train_time=60,
+        total_train_time=60 * 60 * 2,
         waiting_interval=50,
     )
 
