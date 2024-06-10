@@ -338,7 +338,7 @@ def main():
         client_resources=client_resources,
         server=server,
         config=fl.server.ServerConfig(num_rounds=args.num_rounds),
-        strategy=strategy,
+        # strategy=strategy,
         actor_kwargs={"on_actor_init_fn": disable_progress_bar},
     )
 
