@@ -132,7 +132,7 @@ def get_evaluate_fn(
         server_round: int, parameters: fl.common.NDArrays, config: Dict[str, Scalar]
     ):
         """Use the entire CIFAR-10 test set for evaluation."""
-        device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
+        device = torch.device("cuda:1" if torch.cuda.is_available() else "cpu")
 
         model = Net()
         set_params(model, parameters)
