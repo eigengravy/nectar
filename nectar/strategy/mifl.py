@@ -83,17 +83,21 @@ class MIFL(FedAvg):
 
         critical_value = self.critical_value
 
-        if server_round < 50:
-            critical_value = 0.05
-        else:
-            critical_value = 0.25
+        # if server_round < 50:
+        #     critical_value = 0.05
+        # else:
+        #     critical_value = 0.25
 
-        # elif server_round < 50:
+        # if server_round < 20:
+        #     critical_value = 0.05
+        # elif server_round < 40:
         #     critical_value = 0.1
         # elif server_round < 60:
         #     critical_value = 0.15
         # elif server_round < 80:
         #     critical_value = 0.2
+        # else:
+        #     critical_value = 0.25
 
         mi = [result[1].metrics[self.mi_type] for result in results]
 
