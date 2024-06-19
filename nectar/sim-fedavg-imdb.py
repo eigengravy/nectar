@@ -44,23 +44,49 @@ CHECKPOINT = "distilbert-base-uncased"
 
 
 def load_centralized_testset():
-    fds = FederatedDataset(dataset="imdb", partitioners={"train": 10})
-    partition = fds.load_split("test")
-    # Divide data: 80% train, 20% test
-    # partition_train_test = partition.train_test_split(test_size=0.2, seed=42)
+    # fds = FederatedDataset(dataset="imdb", partitioners={"train": 10})
+    # partition = fds.load_split("test")
+    # tokenizer = AutoTokenizer.from_pretrained(CHECKPOINT, model_max_length=512)
 
-    tokenizer = AutoTokenizer.from_pretrained(CHECKPOINT, model_max_length=512)
+    # def tokenize_function(examples):
+    #     return tokenizer(examples["text"], truncation=True)
+
+    # partition_train_test = partition.map(tokenize_function, batched=True)
+    # partition_train_test = partition_train_test.remove_columns("text")
+    # partition_train_test = partition_train_test.rename_column("label", "labels")
+
+    # data_collator = DataCollatorWithPadding(tokenizer=tokenizer)
+    # testloader = DataLoader(partition, batch_size=32, collate_fn=data_collator)
+
+    # return testloader
+
+    raw_datasets = load_dataset("imdb")
+    # raw_datasets = raw_datasets.shuffle(seed=42)
+    # remove unnecessary data split
+    del raw_datasets["unsupervised"]
+    tokenizer = AutoTokenizer.from_pretrained(CHECKPOINT)
 
     def tokenize_function(examples):
         return tokenizer(examples["text"], truncation=True)
 
-    partition_train_test = partition.map(tokenize_function, batched=True)
-    partition_train_test = partition_train_test.remove_columns("text")
-    partition_train_test = partition_train_test.rename_column("label", "labels")
-
+    # We will take a small sample in order to reduce the compute time, this is optional
+    # train_population = random.sample(range(len(raw_datasets["train"])), 100)
+    # test_population = random.sample(range(len(raw_datasets["test"])), 100)
+    tokenized_datasets = raw_datasets.map(tokenize_function, batched=True)
+    # tokenized_datasets["train"] = tokenized_datasets["train"].select(train_population)
+    # tokenized_datasets["test"] = tokenized_datasets["test"].select(test_population)
+    tokenized_datasets = tokenized_datasets.remove_columns("text")
+    tokenized_datasets = tokenized_datasets.rename_column("label", "labels")
     data_collator = DataCollatorWithPadding(tokenizer=tokenizer)
-    testloader = DataLoader(partition, batch_size=32, collate_fn=data_collator)
-
+    # trainloader = DataLoader(
+    #     tokenized_datasets["train"],
+    #     shuffle=True,
+    #     batch_size=32,
+    #     collate_fn=data_collator,
+    # )
+    testloader = DataLoader(
+        tokenized_datasets["test"], batch_size=32, collate_fn=data_collator
+    )
     return testloader
 
 
@@ -163,8 +189,8 @@ def train(student, trainloader, optim, epochs, device):
     results = {
         "loss": train_loss,
         "accuracy": train_acc,
-        "mi_gauss": mi_gauss / len(trainloader.dataset),
-        "mi_cat": mi_cat / len(trainloader.dataset),
+        "mi_gauss": mi_gauss / len(trainloader),
+        "mi_cat": mi_cat / len(trainloader),
         "t_diff": time.time() - start,
     }
     return results
@@ -182,7 +208,7 @@ def test(net, testloader):
         loss += outputs.loss.item()
         predictions = torch.argmax(logits, dim=-1)
         metric.add_batch(predictions=predictions, references=batch["labels"])
-    loss /= len(testloader.dataset)
+    loss /= len(testloader)
     accuracy = metric.compute()["accuracy"]
     return loss, accuracy
 
@@ -214,23 +240,17 @@ class FlowerClient(fl.client.NumPyClient):
         results = train(
             self.model, self.trainset, optimizer, epochs=epochs, device=self.device
         )
-        return get_params(self.model), len(trainloader.dataset), results
+        return get_params(self.model), len(trainloader), results
 
     def evaluate(self, parameters, config):
         set_params(self.model, parameters)
         # valloader = DataLoader(self.valset, batch_size=64)
         valloader = self.valset
         loss, accuracy = test(self.model, valloader)
-        return float(loss), len(valloader.dataset), {"accuracy": float(accuracy)}
+        return float(loss), len(valloader), {"accuracy": float(accuracy)}
 
 
 def get_client_fn():
-    """Return a function to construct a client.
-
-    The VirtualClientEngine will execute this function whenever a client is sampled by
-    the strategy to participate.
-    """
-
     def client_fn(cid: str) -> fl.client.Client:
         """Construct a FlowerClient with its own dataset partition."""
 
