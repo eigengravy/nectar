@@ -32,6 +32,7 @@ from nectar.utils.params import get_params, set_params
 
 from transformers import AutoModelForSequenceClassification
 
+from flwr_datasets.partitioner import DirichletPartitioner
 
 from evaluate import load as load_metric
 from transformers import AdamW
@@ -94,8 +95,16 @@ def load_centralized_testset():
 
 def load_data(partition_id):
     """Load IMDB data (training and eval)"""
-    fds = FederatedDataset(dataset="imdb", partitioners={"train": 10})
+    fds = FederatedDataset(
+        dataset="imdb",
+        partitioners={
+            "train": DirichletPartitioner(
+                num_partitions=10, alpha=0.5, partition_by="label"
+            ),
+        },
+    )
     partition = fds.load_partition(partition_id)
+
     # Divide data: 80% train, 20% test
     partition_train_test = partition.train_test_split(test_size=0.2, seed=42)
 
