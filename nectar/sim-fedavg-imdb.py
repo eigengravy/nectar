@@ -167,8 +167,8 @@ def train(student, trainloader, optim, epochs, device):
                 )
 
             ce_loss = student_outputs.loss
-            dist_loss = distiller(student_logits, teacher_logits, batch["labels"])
-            # dist_loss = distiller(student_logits, teacher_logits)
+            # dist_loss = distiller(student_logits, teacher_logits, batch["labels"])
+            dist_loss = distiller(student_logits, teacher_logits)
             print(f"CE Loss: {ce_loss.item()}, Distill Loss: {dist_loss.item()}")
             print("DEBUG", 1000 * dist_loss.item())
             loss = ce_loss + dist_loss
