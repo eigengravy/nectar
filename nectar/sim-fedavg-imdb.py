@@ -43,35 +43,55 @@ DEVICE = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 CHECKPOINT = "distilbert-base-uncased"
 
 
-def load_data():
-    """Load IMDB data (training and eval)"""
-    raw_datasets = load_dataset("imdb")
-    raw_datasets = raw_datasets.shuffle(seed=42)
-    # remove unnecessary data split
-    del raw_datasets["unsupervised"]
-    tokenizer = AutoTokenizer.from_pretrained(CHECKPOINT)
+def load_centralized_testset():
+    fds = FederatedDataset(dataset="imdb")
+    partition = fds.load_split("test")
+    # Divide data: 80% train, 20% test
+    # partition_train_test = partition.train_test_split(test_size=0.2, seed=42)
+
+    tokenizer = AutoTokenizer.from_pretrained(CHECKPOINT, model_max_length=512)
 
     def tokenize_function(examples):
         return tokenizer(examples["text"], truncation=True)
 
-    # We will take a small sample in order to reduce the compute time, this is optional
-    # train_population = random.sample(range(len(raw_datasets["train"])), 100)
-    # test_population = random.sample(range(len(raw_datasets["test"])), 100)
-    tokenized_datasets = raw_datasets.map(tokenize_function, batched=True)
-    # tokenized_datasets["train"] = tokenized_datasets["train"].select(train_population)
-    # tokenized_datasets["test"] = tokenized_datasets["test"].select(test_population)
-    tokenized_datasets = tokenized_datasets.remove_columns("text")
-    tokenized_datasets = tokenized_datasets.rename_column("label", "labels")
+    partition_train_test = partition.map(tokenize_function, batched=True)
+    partition_train_test = partition_train_test.remove_columns("text")
+    partition_train_test = partition_train_test.rename_column("label", "labels")
+
+    data_collator = DataCollatorWithPadding(tokenizer=tokenizer)
+    testloader = DataLoader(partition, batch_size=32, collate_fn=data_collator)
+
+    return testloader
+
+
+def load_data(partition_id):
+    """Load IMDB data (training and eval)"""
+    fds = FederatedDataset(dataset="imdb", partitioners={"train": 1_000})
+    partition = fds.load_partition(partition_id)
+    # Divide data: 80% train, 20% test
+    partition_train_test = partition.train_test_split(test_size=0.2, seed=42)
+
+    tokenizer = AutoTokenizer.from_pretrained(CHECKPOINT, model_max_length=512)
+
+    def tokenize_function(examples):
+        return tokenizer(examples["text"], truncation=True)
+
+    partition_train_test = partition_train_test.map(tokenize_function, batched=True)
+    partition_train_test = partition_train_test.remove_columns("text")
+    partition_train_test = partition_train_test.rename_column("label", "labels")
+
     data_collator = DataCollatorWithPadding(tokenizer=tokenizer)
     trainloader = DataLoader(
-        tokenized_datasets["train"],
+        partition_train_test["train"],
         shuffle=True,
         batch_size=32,
         collate_fn=data_collator,
     )
+
     testloader = DataLoader(
-        tokenized_datasets["test"], batch_size=32, collate_fn=data_collator
+        partition_train_test["test"], batch_size=32, collate_fn=data_collator
     )
+
     return trainloader, testloader
 
 
@@ -204,7 +224,7 @@ class FlowerClient(fl.client.NumPyClient):
         return float(loss), len(valloader.dataset), {"accuracy": float(accuracy)}
 
 
-def get_client_fn(dataset: FederatedDataset):
+def get_client_fn():
     """Return a function to construct a client.
 
     The VirtualClientEngine will execute this function whenever a client is sampled by
@@ -269,9 +289,7 @@ def fit_metrics_aggregation_fn(metrics: List[Tuple[int, Metrics]]) -> Metrics:
     return metrics
 
 
-def get_evaluate_fn(
-    centralized_testset: Dataset,
-):
+def get_evaluate_fn():
     """Return an evaluation function for centralized evaluation."""
 
     def evaluate(
@@ -287,10 +305,11 @@ def get_evaluate_fn(
         set_params(model, parameters)
         model.to(device)
 
-        testset = centralized_testset.with_transform(apply_transforms)
+        # testset = centralized_testset.with_transform(apply_transforms)
         disable_progress_bar()
 
-        testloader = DataLoader(testset, batch_size=50)
+        # testloader = DataLoader(testset, batch_size=50)
+        testloader = load_centralized_testset()
         loss, accuracy = test(model, testloader, device=device)
 
         return loss, {"accuracy": accuracy}
@@ -396,7 +415,7 @@ def main():
 
     args = parser.parse_args()
 
-    mnist_fds, centralized_testset = get_dataset(args.num_clients)
+    # mnist_fds, centralized_testset = get_dataset(args.num_clients)
 
     # Configure the strategy
     strategy = fl.server.strategy.FedAvg(
@@ -405,7 +424,7 @@ def main():
         min_available_clients=2,
         on_fit_config_fn=fit_config,
         evaluate_metrics_aggregation_fn=evaluate_metrics_aggregation_fn,  # Aggregate federated metrics
-        evaluate_fn=get_evaluate_fn(centralized_testset),  # Global evaluation function
+        evaluate_fn=get_evaluate_fn(),  # Global evaluation function
         fit_metrics_aggregation_fn=fit_metrics_aggregation_fn,
     )
 
@@ -446,7 +465,7 @@ def main():
     }
 
     history = fl.simulation.start_simulation(
-        client_fn=get_client_fn(mnist_fds),
+        client_fn=get_client_fn(),
         num_clients=args.num_clients,
         client_resources=client_resources,
         config=fl.server.ServerConfig(num_rounds=args.num_rounds),
