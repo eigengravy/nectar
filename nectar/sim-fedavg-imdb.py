@@ -220,7 +220,7 @@ class FlowerClient(fl.client.NumPyClient):
         set_params(self.model, parameters)
         # valloader = DataLoader(self.valset, batch_size=64)
         valloader = self.valset
-        loss, accuracy = test(self.model, valloader, device=self.device)
+        loss, accuracy = test(self.model, valloader)
         return float(loss), len(valloader.dataset), {"accuracy": float(accuracy)}
 
 
@@ -310,7 +310,7 @@ def get_evaluate_fn():
 
         # testloader = DataLoader(testset, batch_size=50)
         testloader = load_centralized_testset()
-        loss, accuracy = test(model, testloader, device=device)
+        loss, accuracy = test(model, testloader)
 
         return loss, {"accuracy": accuracy}
 
