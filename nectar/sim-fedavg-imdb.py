@@ -19,6 +19,7 @@ from flwr.common.typing import Scalar
 from datasets import Dataset
 from datasets.utils.logging import disable_progress_bar
 from flwr_datasets import FederatedDataset
+from tqdm import tqdm
 
 # from nectar.models.tiny_imagenet import apply_transforms, get_dataset
 # from nectar.models.tiny_imagenet.vgg16 import VGG16 as Net, train
@@ -139,10 +140,10 @@ def train(student, trainloader, optim, epochs, device):
     # distiller = RKDLoss()
     mi_gauss, mi_cat = 0, 0
     for _ in range(epochs):
-        for batch in trainloader:
+        for batch in tqdm(trainloader):
             batch = {k: v.to(DEVICE) for k, v in batch.items()}
             student_outputs = student(**batch)
-            with torch.no_grad:
+            with torch.no_grad():
                 teacher_outputs = teacher(**batch)
             student_logits = student_outputs.logits
             teacher_logits = teacher_outputs.logits
@@ -200,7 +201,7 @@ def test(net, testloader):
     metric = load_metric("accuracy")
     loss = 0
     net.eval()
-    for batch in testloader:
+    for batch in tqdm(testloader):
         batch = {k: v.to(DEVICE) for k, v in batch.items()}
         with torch.no_grad():
             outputs = net(**batch)
