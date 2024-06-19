@@ -25,6 +25,7 @@ from tqdm import tqdm
 # from nectar.models.tiny_imagenet.vgg16 import VGG16 as Net, train
 # from nectar.strategy.mifl import MIFL
 # from nectar.utils.model import test
+from nectar.loss.kl import DistillLoss
 from nectar.loss.ntd import NTDLoss
 from nectar.utils.mi import mutual_information, normalized_mutual_information
 from nectar.utils.params import get_params, set_params
@@ -132,8 +133,8 @@ def train(student, trainloader, optim, epochs, device):
     teacher.eval()
     student.to(device)
     student.train()
-    distiller = NTDLoss(temp=5.0, gamma=0.5)
-    # distiller = DistillLoss(temp=3.0, gamma=0.5)
+    # distiller = NTDLoss(temp=5.0, gamma=0.5)
+    distiller = DistillLoss(temp=3.0, gamma=0.5)
     # distiller = CosineLoss(gamma=0.5)
     # distiller = JSDLoss(gamma=0.5)
     # distiller = NKDLoss()
