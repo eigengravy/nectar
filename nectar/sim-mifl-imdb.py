@@ -27,6 +27,7 @@ from tqdm import tqdm
 # from nectar.utils.model import test
 from nectar.loss.kl import DistillLoss
 from nectar.loss.ntd import NTDLoss
+from nectar.strategy.mifl import MIFL
 from nectar.utils.mi import mutual_information, normalized_mutual_information
 from nectar.utils.params import get_params, set_params
 
@@ -180,7 +181,7 @@ def train(student, trainloader, optim, epochs, device):
             dist_loss = distiller(student_logits, teacher_logits)
             print(f"CE Loss: {ce_loss.item()}, Distill Loss: {dist_loss.item()}")
             # print("DEBUG", 1000 * dist_loss.item())
-            loss = ce_loss  # + dist_loss
+            loss = ce_loss + dist_loss
             # loss = criterion(student_logits, labels) + distiller(
             #     student_logits, teacher_logits, labels
             # )
@@ -451,29 +452,29 @@ def main():
     # mnist_fds, centralized_testset = get_dataset(args.num_clients)
 
     # Configure the strategy
-    strategy = fl.server.strategy.FedAvg(
+    # strategy = fl.server.strategy.FedAvg(
+    #     fraction_fit=1,  # Sample 10% of available clients for training
+    #     fraction_evaluate=1,  # Sample 5% of available clients for evaluation
+    #     min_available_clients=2,
+    #     on_fit_config_fn=fit_config,
+    #     evaluate_metrics_aggregation_fn=evaluate_metrics_aggregation_fn,  # Aggregate federated metrics
+    #     evaluate_fn=get_evaluate_fn(),  # Global evaluation function
+    #     fit_metrics_aggregation_fn=fit_metrics_aggregation_fn,
+    # )
+
+    strategy = MIFL(
         fraction_fit=1,  # Sample 10% of available clients for training
         fraction_evaluate=1,  # Sample 5% of available clients for evaluation
-        min_available_clients=2,
+        min_available_clients=args.num_clients,
+        min_fit_clients=args.num_clients,
+        min_evaluate_clients=args.num_clients,
         on_fit_config_fn=fit_config,
         evaluate_metrics_aggregation_fn=evaluate_metrics_aggregation_fn,  # Aggregate federated metrics
         evaluate_fn=get_evaluate_fn(),  # Global evaluation function
         fit_metrics_aggregation_fn=fit_metrics_aggregation_fn,
+        critical_value=args.critical_value,
+        mi_type=args.mi_type,
     )
-
-    # strategy = MIFL(
-    #     fraction_fit=1,  # Sample 10% of available clients for training
-    #     fraction_evaluate=1,  # Sample 5% of available clients for evaluation
-    #     min_available_clients=args.num_clients,
-    #     min_fit_clients=args.num_clients,
-    #     min_evaluate_clients=args.num_clients,
-    #     on_fit_config_fn=fit_config,
-    #     evaluate_metrics_aggregation_fn=evaluate_metrics_aggregation_fn,  # Aggregate federated metrics
-    #     evaluate_fn=get_evaluate_fn(centralized_testset),  # Global evaluation function
-    #     fit_metrics_aggregation_fn=fit_metrics_aggregation_fn,
-    #     critical_value=args.critical_value,
-    #     mi_type=args.mi_type,
-    # )
 
     # client = fl.client.ClientApp(
     #     client_fn=get_client_fn(mnist_fds),
