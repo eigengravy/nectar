@@ -146,12 +146,19 @@ class MIFLX(FedAvg):
         config = {}
         if self.on_fit_config_fn is not None:
             config = self.on_fit_config_fn(server_round)
-        config["mi_type"] = self.mi_type
 
-        lower_bound_mi = np.percentile(self.prev_mi, self.critical_value * 100)
-        upper_bound_mi = np.percentile(self.prev_mi, (1 - self.critical_value) * 100)
-        config["lower_mi"] = lower_bound_mi
-        config["upper_mi"] = upper_bound_mi
+        if self.prev_mi is None:
+            config["mi_type"] = None
+            config["lower_mi"] = 0
+            config["upper_mi"] = 0
+        else:
+            config["mi_type"] = self.mi_type
+            lower_bound_mi = np.percentile(self.prev_mi, self.critical_value * 100)
+            upper_bound_mi = np.percentile(
+                self.prev_mi, (1 - self.critical_value) * 100
+            )
+            config["lower_mi"] = lower_bound_mi
+            config["upper_mi"] = upper_bound_mi
 
         fit_ins = FitIns(parameters, config)
 
