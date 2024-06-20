@@ -187,3 +187,127 @@ def train(student, trainloader, optim, epochs, device: str):
         "t_diff": time.time() - start,
     }
     return results
+
+
+def train2(
+    student, trainloader, optim, epochs, device: str, lower_mi, upper_mi, mi_type
+):
+    start = time.time()
+    criterion = torch.nn.CrossEntropyLoss()
+    teacher = copy.deepcopy(student)
+    teacher.to(device)
+    teacher.eval()
+    student.to(device)
+    student.train()
+    distiller = NTDLoss(temp=5.0, gamma=0.5)
+    # distiller = DistillLoss(temp=3.0, gamma=0.5)
+    # distiller = CosineLoss(gamma=0.5)
+    # distiller = JSDLoss(gamma=0.5)
+    # distiller = NKDLoss()
+    # distiller = RKDLoss()
+    mi_gauss, mi_cat = 0, 0
+    for batch in trainloader:
+        images, labels = batch["image"].to(device), batch["label"].to(device)
+        optim.zero_grad()
+        student_logits = student(images)
+        teacher_logits = teacher(images)
+
+        with torch.no_grad():
+            mi_gauss += (
+                mutual_information(student_logits, teacher_logits, dist_type="gaussian")
+                .sum()
+                .item()
+            )
+            mi_cat += (
+                normalized_mutual_information(
+                    student_logits, teacher_logits, dist_type="categorical"
+                )
+                .sum()
+                .item()
+            )
+
+        ce_loss = criterion(student_logits, labels)
+        dist_loss = distiller(student_logits, teacher_logits, labels)
+        # dist_loss = distiller(student_logits, teacher_logits)
+        print(f"CE Loss: {ce_loss.item()}, Distill Loss: {dist_loss.item()}")
+        loss = ce_loss + dist_loss
+        # loss = criterion(student_logits, labels) + distiller(
+        #     student_logits, teacher_logits, labels
+        # )
+        # loss = dist_loss
+
+        # one_hot_labels = F.one_hot(labels, num_classes=200).float()
+        # gamma = 0.5
+        # loss = (1 - gamma) * mutual_information(
+        #     teacher_logits, one_hot_labels, dist_type="gaussian"
+        # ).sum() + gamma * mutual_information(
+        #     student_logits, one_hot_labels, dist_type="gaussian"
+        # ).sum()
+
+        loss.backward()
+        optim.step()
+
+    num_epochs = 1
+    if mi_type is not None:
+        while (
+            mi_gauss / (len(trainloader.dataset) * num_epochs)
+            if mi_type == "gauss"
+            else mi_cat / (len(trainloader.dataset) * num_epochs)
+        ) < lower_mi or (
+            mi_gauss / (len(trainloader.dataset) * num_epochs)
+            if mi_type == "gauss"
+            else mi_cat / (len(trainloader.dataset) * num_epochs)
+        ) > upper_mi:
+            for batch in trainloader:
+                images, labels = batch["image"].to(device), batch["label"].to(device)
+                optim.zero_grad()
+                student_logits = student(images)
+                teacher_logits = teacher(images)
+
+                with torch.no_grad():
+                    mi_gauss += (
+                        mutual_information(
+                            student_logits, teacher_logits, dist_type="gaussian"
+                        )
+                        .sum()
+                        .item()
+                    )
+                    mi_cat += (
+                        normalized_mutual_information(
+                            student_logits, teacher_logits, dist_type="categorical"
+                        )
+                        .sum()
+                        .item()
+                    )
+
+                ce_loss = criterion(student_logits, labels)
+                dist_loss = distiller(student_logits, teacher_logits, labels)
+                # dist_loss = distiller(student_logits, teacher_logits)
+                print(f"CE Loss: {ce_loss.item()}, Distill Loss: {dist_loss.item()}")
+                loss = ce_loss + dist_loss
+                # loss = criterion(student_logits, labels) + distiller(
+                #     student_logits, teacher_logits, labels
+                # )
+                # loss = dist_loss
+
+                # one_hot_labels = F.one_hot(labels, num_classes=200).float()
+                # gamma = 0.5
+                # loss = (1 - gamma) * mutual_information(
+                #     teacher_logits, one_hot_labels, dist_type="gaussian"
+                # ).sum() + gamma * mutual_information(
+                #     student_logits, one_hot_labels, dist_type="gaussian"
+                # ).sum()
+
+                loss.backward()
+                optim.step()
+            num_epochs += 1
+
+    train_loss, train_acc = test(student, trainloader, device)
+    results = {
+        "loss": train_loss,
+        "accuracy": train_acc,
+        "mi_gauss": mi_gauss / (len(trainloader.dataset) * num_epochs),
+        "mi_cat": mi_cat / (len(trainloader.dataset) * num_epochs),
+        "t_diff": time.time() - start,
+    }
+    return results
