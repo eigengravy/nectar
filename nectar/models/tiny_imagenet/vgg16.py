@@ -205,6 +205,7 @@ def train2(
     # distiller = JSDLoss(gamma=0.5)
     # distiller = NKDLoss()
     # distiller = RKDLoss()
+    print("training")
     mi_gauss, mi_cat = 0, 0
     for batch in trainloader:
         images, labels = batch["image"].to(device), batch["label"].to(device)
@@ -249,6 +250,7 @@ def train2(
 
     num_epochs = 1
     if mi_type is not None:
+        print("MIFLXXXXX")
         while (
             mi_gauss / (len(trainloader.dataset) * num_epochs)
             if mi_type == "gauss"
