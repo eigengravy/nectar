@@ -18,7 +18,7 @@ import numpy as np
 from nectar.utils.mi import MIType
 
 
-class MIFL(FedAvg):
+class DynMIFL(FedAvg):
     def __init__(
         self,
         *,
@@ -41,7 +41,7 @@ class MIFL(FedAvg):
         evaluate_metrics_aggregation_fn: Optional[MetricsAggregationFn] = None,
         inplace: bool = True,
         mi_type: MIType,
-        critical_value: float,
+        critical_value_fn: Callable[[int], float],
     ) -> None:
         super().__init__(
             fraction_fit=fraction_fit,
@@ -60,11 +60,11 @@ class MIFL(FedAvg):
         )
         # MIFL Hyperparameters
         self.mi_type = mi_type
-        self.critical_value = critical_value
+        self.critical_value_fn = critical_value_fn
 
     def __repr__(self) -> str:
         """Compute a string representation of the strategy."""
-        rep = f"MIFL(mi_type={self.mi_type}, critical_value={self.critical_value})"
+        rep = f"DynMIFL(mi_type={self.mi_type})"
         return rep
 
     def aggregate_fit(
@@ -80,9 +80,11 @@ class MIFL(FedAvg):
         if not self.accept_failures and failures:
             return None, {}
 
+        critical_value = self.critical_value_fn(server_round)
+
         mi = [fit_res.metrics[self.mi_type.name] for _, fit_res in results]
-        lower_bound_mi = np.percentile(mi, self.critical_value * 100)
-        upper_bound_mi = np.percentile(mi, (1 - self.critical_value) * 100)
+        lower_bound_mi = np.percentile(mi, critical_value * 100)
+        upper_bound_mi = np.percentile(mi, (1 - critical_value) * 100)
 
         log(INFO, f"Lower bound MI: {lower_bound_mi}, Upper bound MI: {upper_bound_mi}")
 
@@ -95,8 +97,8 @@ class MIFL(FedAvg):
                 <= fit_res.metrics[self.mi_type.name]
                 <= upper_bound_mi
             ]
+
             aggregated_ndarrays = aggregate_inplace(selected_results)
-            print(f"Aggregating fit results {len(selected_results)}")
         else:
             # Convert results
             selected_results = [
@@ -109,7 +111,6 @@ class MIFL(FedAvg):
             aggregated_ndarrays = aggregate(selected_results)
 
         log(INFO, f"Aggregating {len(selected_results)} fit results")
-
         parameters_aggregated = ndarrays_to_parameters(aggregated_ndarrays)
 
         # Aggregate custom metrics if aggregation fn was provided
