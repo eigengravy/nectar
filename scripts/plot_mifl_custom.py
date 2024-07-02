@@ -30,21 +30,21 @@ def count_mifl(row, critical_value):
 
 
 def get_critical_value(server_round):
-    # if server_round < 50:
-    #     critical_value = 0.05
-    # else:
-    #     critical_value = 0.25
-
-    if server_round < 20:
+    if server_round < 50:
         critical_value = 0.05
-    elif server_round < 40:
-        critical_value = 0.1
-    elif server_round < 60:
-        critical_value = 0.15
-    elif server_round < 80:
-        critical_value = 0.2
     else:
         critical_value = 0.25
+
+    # if server_round < 20:
+    #     critical_value = 0.05
+    # elif server_round < 40:
+    #     critical_value = 0.1
+    # elif server_round < 60:
+    #     critical_value = 0.15
+    # elif server_round < 80:
+    #     critical_value = 0.2
+    # else:
+    #     critical_value = 0.25
 
     return critical_value
 
