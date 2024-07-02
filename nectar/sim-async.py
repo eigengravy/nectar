@@ -318,7 +318,7 @@ def main():
         },
         max_workers=2 * args.num_clients,
         total_train_time=60 * 60 * 2,
-        waiting_interval=50,
+        waiting_interval=100,
     )
 
     # strategy = MIFL(

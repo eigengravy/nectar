@@ -13,13 +13,16 @@ from torch.utils.data import DataLoader
 import flwr as fl
 from flwr.common import Metrics
 from flwr.common.typing import Scalar
+from logging import INFO, WARNING
 
 from datasets import Dataset
 from datasets.utils.logging import disable_progress_bar
 from flwr_datasets import FederatedDataset
+from flwr.common.logger import log
 
 from nectar.models.tiny_imagenet import apply_transforms, get_dataset
 from nectar.models.tiny_imagenet.vgg16 import VGG16 as Net, train2 as train
+# from nectar.strategy.miflx import Nectar as MIFLX
 from nectar.strategy.miflx import MIFLX
 from nectar.utils.model import test
 from nectar.utils.params import get_params, set_params
@@ -40,7 +43,7 @@ class FlowerClient(fl.client.NumPyClient):
 
     def fit(self, parameters, config):
         set_params(self.model, parameters)
-
+        log(WARNING, "it fits!!!!!!!!!!!!!!!")
         # Read from config
         batch, epochs = config["batch_size"], config["epochs"]
         trainloader = DataLoader(self.trainset, batch_size=batch, shuffle=True)
@@ -56,6 +59,7 @@ class FlowerClient(fl.client.NumPyClient):
             upper_mi=config["upper_mi"],
             mi_type=config["mi_type"],
         )
+        log(WARNING, "finished training!!!!!!!!!!!!!!!")
         return get_params(self.model), len(trainloader.dataset), results
 
     def evaluate(self, parameters, config):
@@ -271,8 +275,8 @@ def main():
         fraction_fit=1,  # Sample 10% of available clients for training
         fraction_evaluate=1,  # Sample 5% of available clients for evaluation
         min_available_clients=args.num_clients,
-        min_fit_clients=args.num_clients,
-        min_evaluate_clients=args.num_clients,
+        min_fit_clients=args.num_clients//2,
+        min_evaluate_clients=args.num_clients//2,
         on_fit_config_fn=fit_config,
         evaluate_metrics_aggregation_fn=evaluate_metrics_aggregation_fn,  # Aggregate federated metrics
         evaluate_fn=get_evaluate_fn(centralized_testset),  # Global evaluation function

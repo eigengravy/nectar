@@ -42,7 +42,7 @@ import random
 from datasets import load_dataset
 from transformers import AutoTokenizer, DataCollatorWithPadding
 
-DEVICE = torch.device("cuda:1" if torch.cuda.is_available() else "cpu")
+DEVICE = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 CHECKPOINT = "distilbert-base-uncased"
 
 
@@ -234,10 +234,10 @@ class FlowerClient(fl.client.NumPyClient):
         self.cid = cid
         self.valset = valset
         self.model = AutoModelForSequenceClassification.from_pretrained(
-            CHECKPOINT, num_labels=2
+            CHECKPOINT, num_labels=6
         ).to(DEVICE)
 
-        self.device = torch.device("cuda:1" if torch.cuda.is_available() else "cpu")
+        self.device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
         # self.model.to(self.device)  # send model to device
 
     def get_parameters(self, config):
@@ -330,10 +330,10 @@ def get_evaluate_fn():
         server_round: int, parameters: fl.common.NDArrays, config: Dict[str, Scalar]
     ):
         """Use the entire CIFAR-10 test set for evaluation."""
-        device = torch.device("cuda:1" if torch.cuda.is_available() else "cpu")
+        device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 
         model = AutoModelForSequenceClassification.from_pretrained(
-            CHECKPOINT, num_labels=2
+            CHECKPOINT, num_labels=6
         ).to(DEVICE)
 
         set_params(model, parameters)

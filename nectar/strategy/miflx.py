@@ -104,10 +104,30 @@ class MIFLX(FedAvg):
 
         if self.prev_mi is None:
             self.prev_mi = mi
-            return super().aggregate_fit(server_round, results, failures)
+            if self.inplace:
+                aggregated_ndarrays = aggregate_inplace(results)
+                print(f"Aggregating fit results {len(results)}")
+            else:
+                # Convert results
+                weights_results = [
+                    (parameters_to_ndarrays(fit_res.parameters), fit_res.num_examples)
+                    for _, fit_res in results
+                ]
+                aggregated_ndarrays = aggregate(weights_results)
 
-        lower_bound_mi = np.percentile(self.prev_mi, critical_value * 100)
-        upper_bound_mi = np.percentile(self.prev_mi, (1 - critical_value) * 100)
+            parameters_aggregated = ndarrays_to_parameters(aggregated_ndarrays)
+
+            # Aggregate custom metrics if aggregation fn was provided
+            metrics_aggregated = {}
+            if self.fit_metrics_aggregation_fn:
+                fit_metrics = [(res.num_examples, res.metrics) for _, res in results]
+                metrics_aggregated = self.fit_metrics_aggregation_fn(fit_metrics)
+            elif server_round == 1:  # Only log this warning once
+                log(WARNING, "No fit_metrics_aggregation_fn provided")
+
+            return parameters_aggregated, metrics_aggregated
+        lower_bound_mi = np.percentile(self.prev_mi, critical_value * 100) / 1.001
+        upper_bound_mi = np.percentile(self.prev_mi, (1 - critical_value) * 100) * 1.001
         self.prev_mi = mi
 
         if self.inplace:
@@ -148,21 +168,21 @@ class MIFLX(FedAvg):
             config = self.on_fit_config_fn(server_round)
 
         if self.prev_mi is None:
-            config["mi_type"] = None
+            config["mi_type"] = 0
             config["lower_mi"] = 0
             config["upper_mi"] = 0
         else:
-            config["mi_type"] = self.mi_type
+            config["mi_type"] = 1
             lower_bound_mi = np.percentile(self.prev_mi, self.critical_value * 100)
             upper_bound_mi = np.percentile(
                 self.prev_mi, (1 - self.critical_value) * 100
             )
-            config["lower_mi"] = lower_bound_mi
-            config["upper_mi"] = upper_bound_mi
+            config["lower_mi"] = lower_bound_mi / 1.001
+            config["upper_mi"] = upper_bound_mi * 1.001
 
+        log(WARNING, config)
         fit_ins = FitIns(parameters, config)
 
-        # Sample clients
         sample_size, min_num_clients = self.num_fit_clients(
             client_manager.num_available()
         )
@@ -170,5 +190,5 @@ class MIFLX(FedAvg):
             num_clients=sample_size, min_num_clients=min_num_clients
         )
 
-        # Return client/config pairs
+
         return [(client, fit_ins) for client in clients]
