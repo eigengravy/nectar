@@ -1,135 +1,125 @@
+from enum import Enum
+from typing import Tuple
 import torch
+import torch.nn.functional as F
+from torch import Tensor
 import math
 
-
-def categorical_entropy(tensor):
-    probs = torch.softmax(tensor, dim=-1)
-    entropy = -(probs * torch.log(probs)).sum(dim=-1)
-    return entropy
+MIType = Enum("MIType", ["CATEGORICAL", "GAUSSIAN"])
 
 
-def gaussian_entropy(tensor):
-    variance = torch.var(tensor, dim=-1)
-    entropy = 0.5 * (1 + torch.log(2 * torch.pi * variance))
-    return entropy
+def mutual_information(x: Tensor, y: Tensor, mi_type: MIType) -> Tensor:
+    """
+    Calculate the mutual information between two distributions.
 
+    Args:
+    x (torch.Tensor): First tensor
+    y (torch.Tensor): Second tensor
+    mi_type (MIType): Type of the distribution
 
-# def gaussian_entropy2(tensor):
-#     variance = torch.var(tensor, dim=-1) + 1e-6
-#     entropy = 0.5 * (1 + torch.log(2 * torch.pi * variance))
-#     return entropy
-
-
-def mutual_information(tensor1, tensor2, dist_type="categorical"):
-    if dist_type == "categorical":
-        entropy_func = categorical_entropy
-    elif dist_type == "gaussian":
-        # entropy_func = gaussian_entropy
-        sigma_g = torch.std(tensor1, dim=0, keepdim=True)  # Shape: (1, n_params)
-        sigma_k = torch.std(tensor2, dim=0, keepdim=True)  # Shape: (1, n_params)
-
-        E_Fg = torch.mean(tensor1, dim=0, keepdim=True)
-        E_Fk = torch.mean(tensor2, dim=0, keepdim=True)
-        # Calculate rho_gk over the batch dimension
-        rho_gk = torch.mean((tensor1 - E_Fg) * (tensor2 - E_Fk), dim=0) / (
-            sigma_g * sigma_k + 1e-8
-        )  # Shape: (n_params,)
-
-        return -0.5 * torch.mean(torch.log(1 - rho_gk**2))
+    Returns:
+    torch.Tensor: Mutual information
+    """
+    if mi_type == MIType.CATEGORICAL:
+        return categorical_mutual_information(x, y)
+    elif mi_type == MIType.GAUSSIAN:
+        return gaussian_mutual_information(x, y)
     else:
         raise ValueError(
             "Invalid distribution type. Must be 'categorical' or 'gaussian'."
         )
 
-    joint_tensor = torch.cat((tensor1, tensor2), dim=-1)
-    joint_entropy = entropy_func(joint_tensor)
-    marginal_entropy1 = entropy_func(tensor1)
-    marginal_entropy2 = entropy_func(tensor2)
-    mutual_info = marginal_entropy1 + marginal_entropy2 - joint_entropy
 
-    return mutual_info
+def categorical_mutual_information(x: Tensor, y: Tensor) -> Tensor:
+    """
+    Calculate the mutual information between two Categorical distributions.
 
+    Args:
+    x (torch.Tensor): First tensor of shape (batch_size, num_categories)
+    y (torch.Tensor): Second tensor of shape (batch_size, num_categories)
 
-def averaged_mutual_information(tensor1, tensor2, dist_type="categorical"):
-    mutual_info = mutual_information(tensor1, tensor2, dist_type)
-    averaged_mi = mutual_info.mean()
-    return averaged_mi
+    Returns:
+    torch.Tensor: Mutual information
+    """
 
-
-def normalized_mutual_information(tensor1, tensor2, dist_type="categorical"):
-    if dist_type == "categorical":
-        entropy_func = categorical_entropy
-    elif dist_type == "gaussian":
-        entropy_func = gaussian_entropy
-    else:
-        raise ValueError(
-            "Invalid distribution type. Must be 'categorical' or 'gaussian'."
+    def categorical_entropy(p: Tensor) -> Tensor:
+        return -torch.sum(
+            F.softmax(p, dim=-1) * torch.log(F.softmax(p, dim=-1) + 1e-12), dim=-1
         )
-    mutual_info = mutual_information(tensor1, tensor2, dist_type)
-    entropy1 = entropy_func(tensor1)
-    entropy2 = entropy_func(tensor2)
-    normalized_mi = mutual_info / ((entropy1 + entropy2) / 2)
-    return normalized_mi
+
+    h_x = categorical_entropy(x.mean(dim=0))
+    h_y = categorical_entropy(y.mean(dim=0))
+    h_xy = categorical_entropy(
+        torch.bmm(x.unsqueeze(2), y.unsqueeze(1)).mean(dim=0).view(-1)
+    )
+
+    return h_x + h_y - h_xy
+
+
+def gaussian_mutual_information(x: Tensor, y: Tensor) -> Tensor:
+    """
+    Calculate the mutual information between two Gaussian distributions.
+    Args:
+    x (torch.Tensor): First tensor of shape (batch_size, feature_dim)
+    y (torch.Tensor): Second tensor of shape (batch_size, feature_dim)
+
+    Returns:
+    torch.Tensor: Mutual information
+    """
+
+    def gaussian_entropy(cov: Tensor) -> Tensor:
+        return 0.5 * torch.logdet(2 * math.pi * math.e * cov)
+
+    h_x = gaussian_entropy(torch.cov(x.T))
+    h_y = gaussian_entropy(torch.cov(y.T))
+    h_xy = gaussian_entropy(torch.cov(torch.cat([x, y], dim=1).T))
+
+    return h_x + h_y - h_xy
+
+
+def _gen_random_tensors(batch_size: int, num_categories: int) -> Tuple[Tensor, Tensor]:
+    x = torch.randn(batch_size, num_categories)
+    y = torch.randn(batch_size, num_categories)
+    return x, y
+
+
+def _gen_correlated_tensors(
+    batch_size: int, num_categories: int
+) -> Tuple[Tensor, Tensor]:
+    mean_x = torch.zeros(num_categories)
+    temp_matrix = torch.randn(num_categories, num_categories)
+    cov_x = torch.mm(temp_matrix, temp_matrix.t()) + torch.eye(num_categories)
+    cov_x /= cov_x.max()
+    x = torch.distributions.MultivariateNormal(mean_x, cov_x).sample((batch_size,))
+    y = torch.zeros(batch_size, num_categories)
+    for i in range(num_categories):
+        weights = torch.randn(num_categories)
+        weights /= weights.sum()
+        y[:, i] = torch.mm(x, weights.unsqueeze(1)).squeeze() + 0.1 * torch.randn(
+            batch_size
+        )
+    y = (y - y.mean(dim=0)) / y.std(dim=0)
+    return x, y
 
 
 if __name__ == "__main__":
-    tensor1 = torch.randn(10, 10)
-    # tensor2 = torch.randn(100, 10)
-    tensor2 = tensor1 + torch.randn(10, 10) * 0.1
-    # mutual_info_categorical = mutual_information(
-    #     tensor1, tensor2, dist_type="categorical"
-    # )
-    mutual_info_gaussian = mutual_information(
-        tensor1, tensor2, dist_type="gaussian"
-    ).sum()
+    batch_size = 1000
+    num_categories = 10
 
-    # averaged_mi_categorical = averaged_mutual_information(
-    #     tensor1, tensor2, dist_type="categorical"
-    # )
-    # averaged_mi_gaussian = averaged_mutual_information(
-    #     tensor1, tensor2, dist_type="gaussian"
-    # )
+    print("Random Tensors")
+    x, y = _gen_random_tensors(batch_size, num_categories)
 
-    # normalized_mi_categorical = normalized_mutual_information(
-    #     tensor1, tensor2, dist_type="categorical"
-    # )
-    # normalized_mi_gaussian = normalized_mutual_information(
-    #     tensor1, tensor2, dist_type="gaussian"
-    # )
+    cat_mi = categorical_mutual_information(x, y)
+    print(f"Categorical Mutual Information: {cat_mi.item()}")
+    gauss_mi = gaussian_mutual_information(x, y)
+    print(f"Gaussian Mutual Information: {gauss_mi.item()}")
 
-    # a = normalized_mutual_information(tensor1, tensor2, dist_type="gaussian")
-    # b = normalized_mutual_information(tensor2, tensor1, dist_type="gaussian")
+    print("-" * 50)
 
-    # print(a.shape)
-    # print(b.shape)
-    # print((a + b).shape)
-    # print(torch.cat((torch.empty(), b), dim=-1).shape)
-    # # print(mutual_info_categorical)
-    # print(mutual_info_gaussian)
+    print("Correlated Tensors")
+    x, y = _gen_correlated_tensors(batch_size, num_categories)
 
-    # print(gaussian_entropy(tensor1))
-    # print(gaussian_entropy2(tensor1))
-    # print(gaussian_entropy(tensor2))
-    # print(gaussian_entropy2(tensor2))
-
-    Fg = 10 * torch.randn(10, 10)
-    # tensor2 = torch.randn(100, 10)
-    Fk = Fg + torch.randn(10, 10)
-    # Fk = torch.randn(1, 10).repeat(10, 1)
-    # Calculate the standard deviation over the batch dimension
-    sigma_g = torch.std(Fg, dim=0, keepdim=True)  # Shape: (1, n_params)
-    sigma_k = torch.std(Fk, dim=0, keepdim=True)  # Shape: (1, n_params)
-
-    E_Fg = torch.mean(Fg, dim=0, keepdim=True)
-    E_Fk = torch.mean(Fk, dim=0, keepdim=True)
-    # Calculate rho_gk over the batch dimension
-    rho_gk = torch.mean((Fg - E_Fg) * (Fk - E_Fk), dim=0) / (
-        sigma_g * sigma_k + 1e-8
-    )  # Shape: (n_params,)
-
-    print(-0.5 * torch.log(1 - rho_gk**2))
-
-# print(averaged_mi_categorical)
-# print(averaged_mi_gaussian)
-# print(normalized_mi_categorical)
-# print(normalized_mi_gaussian)
+    cat_mi = categorical_mutual_information(x, y)
+    print(f"Categorical Mutual Information: {cat_mi.item()}")
+    gauss_mi = gaussian_mutual_information(x, y)
+    print(f"Gaussian Mutual Information: {gauss_mi.item()}")
