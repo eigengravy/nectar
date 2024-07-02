@@ -2,21 +2,8 @@ num_clients: 2
 num_rounds: 2
 
 client_resources:
-  num_cpus: 4
+  num_cpus: 1
   num_gpus: 0
-
-fit_config:
-  epochs: 1
-  batch_size: 32
-  optimizer:
-    _target_: torch.optim.Adam
-    lr: 0.01
-
-
-dataset: 
-  name: "mnist"
-  train: "train"
-  test: "test"
 
 partitioners:
   train: 
@@ -25,13 +12,45 @@ partitioners:
     alpha: 0.5
     partition_by: label
 
+fit_config:
+  epochs: 2
+  batch_size: 64
+  mi_type: "GAUSSIAN"
+  optimizer:
+    _target_: torch.optim.Adam
+    lr: 0.01
+  criterion:
+    _target_: torch.nn.CrossEntropyLoss
+  distiller:
+    _target_: nectar.loss.kl.DistillLoss
+    temp: 3.0
+    gamma: 0.5
+  
+model:
+  _target_: nectar.models.simplecnn.SimpleCNN
+  num_classes: 10
+
+dataset:
+  load_dataset:
+    _target_: nectar.workloads.mnist.load_dataset
+  train_fn:
+    _target_: nectar.workloads.mnist.train_fn
+  test_fn:
+    _target_: nectar.workloads.mnist.test_fn
+  mi_fn:
+    _target_: nectar.workloads.mnist.mi_fn
+
+
+
+desc: "SimpleCNN on MNIST"
+
 strategy:
-  _target_: flwr.server.strategy.FedAvg
+  _target_: nectar.strategy.optimifl.OptiMIFL
   fraction_fit: 1.0
   fraction_evaluate: 1.0
-  min_fit_clients: ${num_clients}
   min_available_clients: ${num_clients}
-
+  mi_type: "GAUSSIAN"
+  critical_value: 0.25
   
 
 

@@ -15,8 +15,6 @@ from flwr.common import (
 )
 import numpy as np
 
-from nectar.utils.mi import MIType
-
 
 class DynMIFL(FedAvg):
     def __init__(
@@ -40,7 +38,7 @@ class DynMIFL(FedAvg):
         fit_metrics_aggregation_fn: Optional[MetricsAggregationFn] = None,
         evaluate_metrics_aggregation_fn: Optional[MetricsAggregationFn] = None,
         inplace: bool = True,
-        mi_type: MIType,
+        mi_type: str,
         critical_value_fn: Callable[[int], float],
     ) -> None:
         super().__init__(
@@ -82,7 +80,7 @@ class DynMIFL(FedAvg):
 
         critical_value = self.critical_value_fn(server_round)
 
-        mi = [fit_res.metrics[self.mi_type.name] for _, fit_res in results]
+        mi = [fit_res.metrics["mi"] for _, fit_res in results]
         lower_bound_mi = np.percentile(mi, critical_value * 100)
         upper_bound_mi = np.percentile(mi, (1 - critical_value) * 100)
 
@@ -93,9 +91,7 @@ class DynMIFL(FedAvg):
             selected_results = [
                 results
                 for _, fit_res in results
-                if lower_bound_mi
-                <= fit_res.metrics[self.mi_type.name]
-                <= upper_bound_mi
+                if lower_bound_mi <= fit_res.metrics["mi"] <= upper_bound_mi
             ]
 
             aggregated_ndarrays = aggregate_inplace(selected_results)
@@ -104,9 +100,7 @@ class DynMIFL(FedAvg):
             selected_results = [
                 (parameters_to_ndarrays(fit_res.parameters), fit_res.num_examples)
                 for _, fit_res in results
-                if lower_bound_mi
-                <= fit_res.metrics[self.mi_type.name]
-                <= upper_bound_mi
+                if lower_bound_mi <= fit_res.metrics["mi"] <= upper_bound_mi
             ]
             aggregated_ndarrays = aggregate(selected_results)
 

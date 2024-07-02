@@ -5,28 +5,26 @@ import torch.nn.functional as F
 from torch import Tensor
 import math
 
-MIType = Enum("MIType", ["CATEGORICAL", "GAUSSIAN"])
 
-
-def mutual_information(x: Tensor, y: Tensor, mi_type: MIType) -> Tensor:
+def mutual_information(x: Tensor, y: Tensor, mi_type: str) -> Tensor:
     """
     Calculate the mutual information between two distributions.
 
     Args:
     x (torch.Tensor): First tensor
     y (torch.Tensor): Second tensor
-    mi_type (MIType): Type of the distribution
+    mi_type (str): Type of the distribution
 
     Returns:
     torch.Tensor: Mutual information
     """
-    if mi_type == MIType.CATEGORICAL:
+    if mi_type == "CATEGORICAL":
         return categorical_mutual_information(x, y)
-    elif mi_type == MIType.GAUSSIAN:
+    elif mi_type == "GAUSSIAN":
         return gaussian_mutual_information(x, y)
     else:
         raise ValueError(
-            "Invalid distribution type. Must be 'categorical' or 'gaussian'."
+            "Invalid distribution type. Must be 'CATEGORICAL' or 'GAUSSIAN'."
         )
 
 
