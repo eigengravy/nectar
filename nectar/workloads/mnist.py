@@ -5,7 +5,7 @@ from torch.utils.data import DataLoader
 
 from torchvision.transforms import Compose, Normalize, ToTensor
 from flwr_datasets import FederatedDataset
-
+from tqdm import tqdm
 
 def train_fn(
     student, teacher, optimizer, criterion, distiller, trainloader, epochs, device
@@ -85,7 +85,7 @@ def load_dataset(partitioners, batch_size=64, test_size=0.1):
         fds.load_split("test").with_transform(apply_transforms), batch_size=batch_size
     )
 
-    def get_client_loader(cid: int):
+    def get_client_loader(cid: str):
         client_dataset = fds.load_partition(int(cid), "train")
         client_dataset_splits = client_dataset.train_test_split(
             test_size=test_size, seed=42

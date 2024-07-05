@@ -5,6 +5,9 @@ import flwr as fl
 from hydra.utils import instantiate
 from nectar.utils.params import get_params, set_params
 
+from logging import INFO, WARNING
+from flwr.common.logger import log
+
 
 class FlowerClient(fl.client.NumPyClient):
     def __init__(
@@ -39,10 +42,14 @@ class FlowerClient(fl.client.NumPyClient):
 
     def fit(self, parameters, config):
         set_params(self.model, parameters)
-
         epochs = config["epochs"]
         teacher = copy.deepcopy(self.model)
         start_time = time.time()
+        # log(INFO, f"Start fit round on #{self.cid} for {epochs} epochs.")
+        # log(
+        #     INFO,
+        #     f"Client #{self.cid} Mode={config['opti_mifl']}",
+        # )
         results = instantiate(
             self.train_fn,
             self.model,
@@ -62,14 +69,30 @@ class FlowerClient(fl.client.NumPyClient):
         )
         results["mi"] = mi
         results["t_diff"] = end_time - start_time
+        results["cid"] = self.cid
 
-        if (
-            config["opti_mifl"] == 1
-            and mi > config["lower_bound"]
-            and mi < config["upper_bound"]
-        ):
-            return get_params(self.model), len(self.trainloader.dataset), results
-        elif config["opti_mifl"] == 0:
+        if "opti_mifl" in config.keys():
+            results["opti_mifl"] = config["opti_mifl"]
+            if config["opti_mifl"] == 1:
+                log(
+                    INFO,
+                    f"Client #{self.cid} Mode={config['opti_mifl']} MI={mi} {mi > config['lower_bound'] and mi < config['upper_bound']}",
+                )
+                if mi > config["lower_bound"] and mi < config["upper_bound"]:
+                    return (
+                        get_params(self.model),
+                        len(self.trainloader.dataset),
+                        results,
+                    )
+                else:
+                    return [], 0, {"cid": -1}
+            elif config["opti_mifl"] == 0:
+                log(
+                    INFO,
+                    f"Client #{self.cid} Mode={config['opti_mifl']} MI={mi}",
+                )
+                return get_params(self.model), len(self.trainloader.dataset), results
+        else:
             return get_params(self.model), len(self.trainloader.dataset), results
 
     def evaluate(self, parameters, config):

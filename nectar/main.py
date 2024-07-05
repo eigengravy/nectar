@@ -1,9 +1,12 @@
 from datetime import datetime
+import os
+import pickle
 from typing import Dict
 import uuid
 from flwr.common.typing import Scalar
 import flwr as fl
 import hydra
+from hydra.core.hydra_config import HydraConfig
 from hydra.utils import instantiate
 from omegaconf import OmegaConf
 import torch
@@ -18,8 +21,6 @@ from nectar.utils.params import set_params
 
 DEVICE = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 
-run_id = datetime.now().strftime("%d-%b-%H%M") + "-" + str(uuid.uuid4())[:8]
-
 
 @hydra.main(version_base=None, config_path="../config", config_name="base")
 def main(cfg):
@@ -28,7 +29,7 @@ def main(cfg):
     def fit_config(server_round: int) -> Dict[str, Scalar]:
         """Return a configuration with static batch size and (local) epochs."""
         config = {
-            "epochs": cfg.fit_config.batch_size,
+            "epochs": cfg.fit_config.epochs,
             "mi_type": cfg.fit_config.mi_type,
         }
         return config
@@ -86,9 +87,17 @@ def main(cfg):
         client_fn=get_client_fn(get_client_loader),
         num_clients=cfg.num_clients,
         client_resources=cfg.client_resources,
-        config=fl.server.ServerConfig(num_rounds=cfg.num_rounds),
+        config=fl.server.ServerConfig(
+            num_rounds=cfg.num_rounds, round_timeout=cfg.round_timeout
+        ),
         strategy=strategy,
         actor_kwargs={"on_actor_init_fn": disable_progress_bar},
+    )
+
+    save_path = HydraConfig.get().runtime.output_dir
+    pickle.dump(
+        history,
+        open(f"{save_path}/history.pkl", "wb"),
     )
 
 

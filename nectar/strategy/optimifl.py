@@ -17,7 +17,6 @@ from flwr.common import (
 )
 import numpy as np
 from sklearn.linear_model import LinearRegression
-
 from nectar.strategy.mifl import MIFL
 
 
@@ -46,7 +45,7 @@ class OptiMIFL(MIFL):
         mi_type: str,
         critical_value: float,
         opti_rounds: int = 15,
-        lottery_rato: float = 0.25,
+        lottery_ratio: float = 0.25,
     ) -> None:
         super().__init__(
             fraction_fit=fraction_fit,
@@ -65,9 +64,10 @@ class OptiMIFL(MIFL):
             mi_type=mi_type,
             critical_value=critical_value,
         )
-        self.lottery_rato = lottery_rato
+        self.lottery_ratio = lottery_ratio
         self.opti_rounds = opti_rounds
-        self.mi_history = []
+        self.lower_mi_history = []
+        self.upper_mi_history = []
         self.lr_lower = LinearRegression()
         self.lr_upper = LinearRegression()
 
@@ -89,36 +89,51 @@ class OptiMIFL(MIFL):
         if not self.accept_failures and failures:
             return None, {}
 
-        mi = [fit_res.metrics["mi"] for _, fit_res in results]
-        self.mi_history.append(mi)
+        log(INFO, f"Received {len(results)} fit results")
 
-        if server_round < self.opti_rounds:
-            return super().aggregate_fit(server_round, results, failures)
+        results = [result for result in results if result[1].metrics["cid"] != -1]
 
+        mi = [
+            fit_res.metrics["mi"]
+            for _, fit_res in results
+            if not np.isnan(fit_res.metrics["mi"])
+        ]
+        log(INFO, f"len(mi)={len(mi)}")
+
+        if len(mi) < self.min_fit_clients:
+            mi.extend([sum(mi) / len(mi)] * (self.min_fit_clients - len(mi)))
+        log(INFO, f"len(mi)={len(mi)}")
+
+        # if server_round < self.opti_rounds:
         lower_bound_mi = np.percentile(mi, self.critical_value * 100)
         upper_bound_mi = np.percentile(mi, (1 - self.critical_value) * 100)
+        # else:
+        #     X = np.array([self.lower_mi_history[-2], self.upper_mi_history[-2]]).reshape(1, -1)
+        #     lower_bound_mi = self.lr_lower.predict(X.reshape(1, -1))[0]
+        #     upper_bound_mi = self.lr_upper.predict(X.reshape(1, -1))[0]
 
-        log(INFO, f"Lower bound MI: {lower_bound_mi}, Upper bound MI: {upper_bound_mi}")
+        log(INFO, f"Lower bound: {lower_bound_mi}, Upper bound: {upper_bound_mi}")
+        self.lower_mi_history.append(lower_bound_mi)
+        self.upper_mi_history.append(upper_bound_mi)
 
         if self.inplace:
             # Does in-place weighted average of results
-            selected_results = [
-                results
-                for _, fit_res in results
-                if lower_bound_mi <= fit_res.metrics["mi"] <= upper_bound_mi
-            ]
-            aggregated_ndarrays = aggregate_inplace(selected_results)
-            print(f"Aggregating fit results {len(selected_results)}")
+            # selected_results = [
+            #     (_, fit_res)
+            #     for _, fit_res in results
+            #     if lower_bound_mi <= fit_res.metrics["mi"] <= upper_bound_mi
+            # ]
+            aggregated_ndarrays = aggregate_inplace(results)
         else:
             # Convert results
-            selected_results = [
-                (parameters_to_ndarrays(fit_res.parameters), fit_res.num_examples)
-                for _, fit_res in results
-                if lower_bound_mi <= fit_res.metrics["mi"] <= upper_bound_mi
-            ]
-            aggregated_ndarrays = aggregate(selected_results)
+            # selected_results = [
+            #     (parameters_to_ndarrays(fit_res.parameters), fit_res.num_examples)
+            #     for _, fit_res in results
+            #     if lower_bound_mi <= fit_res.metrics["mi"] <= upper_bound_mi
+            # ]
+            aggregated_ndarrays = aggregate(results)
 
-        log(INFO, f"Aggregating {len(selected_results)} fit results")
+        log(INFO, f"Aggregating {len(results)} fit results")
 
         parameters_aggregated = ndarrays_to_parameters(aggregated_ndarrays)
 
@@ -144,18 +159,21 @@ class OptiMIFL(MIFL):
             client_manager.num_available()
         )
         clients = client_manager.sample(
-            num_clients=sample_size, min_num_clients=min_num_clients
+            num_clients=sample_size, min_num_clients=sample_size
         )
 
         lottery_idx = random.sample(
-            range(len(clients)), int(len(clients) * self.lottery_rato)
+            range(len(clients)), int(len(clients) * self.lottery_ratio)
         )
+
+        log(INFO, f"Lottery: {lottery_idx}")
 
         if server_round == self.opti_rounds:
             # Fit on entire history
-            X = np.array(self.mi_history)
-            y_lower = np.percentile(self.mi_history, self.critical_value * 100)
-            y_upper = np.percentile(self.mi_history, (1 - self.critical_value) * 100)
+            log(INFO, "Fit entire history")
+            X = np.array(list(zip(self.lower_mi_history, self.upper_mi_history))[:-1])
+            y_lower = np.array(self.lower_mi_history[1:])
+            y_upper = np.array(self.upper_mi_history[1:])
             self.lr_lower.fit(X, y_lower)
             self.lr_upper.fit(X, y_upper)
             lower_bound = self.lr_lower.predict(X[-1].reshape(1, -1))[0]
@@ -166,39 +184,44 @@ class OptiMIFL(MIFL):
             )
         elif server_round > self.opti_rounds:
             # Fit on last round
-            X = np.array(self.mi_history[-1])
-            y_lower = np.percentile(self.mi_history[-1], self.critical_value * 100)
-            y_upper = np.percentile(
-                self.mi_history[-1], (1 - self.critical_value) * 100
-            )
-            self.lr_lower.fit(X, y_lower)
-            self.lr_upper.fit(X, y_upper)
-            lower_bound = self.lr_lower.predict(X.reshape(1, -1))[0]
-            upper_bound = self.lr_upper.predict(X.reshape(1, -1))[0]
+            log(INFO, "Fit last round")
+            X = np.array(
+                [self.lower_mi_history[-2], self.upper_mi_history[-2]]
+            ).reshape(1, -1)
+            self.lr_lower.fit(X, np.array(self.lower_mi_history[-1]).reshape(-1, 1))
+            self.lr_upper.fit(X, np.array(self.upper_mi_history[-1]).reshape(-1, 1))
+            lower_bound = self.lr_lower.predict(X.reshape(1, -1))[0][0]
+            upper_bound = self.lr_upper.predict(X.reshape(1, -1))[0][0]
             log(
                 INFO,
                 f"Lower bound MI (Predicted): {lower_bound}, Upper bound MI (Predicted): {upper_bound}",
             )
 
         fit_configurations = []
-        for idx, client in enumerate(clients):
-            if idx in lottery_idx or server_round < self.opti_rounds:
+        if server_round < self.opti_rounds:
+            for idx, client in enumerate(clients):
                 fit_configurations.append(
                     (client, FitIns(parameters, {"opti_mifl": 0, **config}))
                 )
-            else:
-                fit_configurations.append(
-                    (
-                        client,
-                        FitIns(
-                            parameters,
-                            {
-                                "opti_mifl": 1,
-                                "lower_bound": lower_bound,
-                                "upper_bound": upper_bound,
-                                **config,
-                            },
-                        ),
+        else:
+            for idx, client in enumerate(clients):
+                if idx in lottery_idx:
+                    fit_configurations.append(
+                        (client, FitIns(parameters, {"opti_mifl": 0, **config}))
                     )
-                )
+                else:
+                    fit_configurations.append(
+                        (
+                            client,
+                            FitIns(
+                                parameters,
+                                {
+                                    **config,
+                                    "opti_mifl": 1,
+                                    "lower_bound": lower_bound,
+                                    "upper_bound": upper_bound,
+                                },
+                            ),
+                        )
+                    )
         return fit_configurations

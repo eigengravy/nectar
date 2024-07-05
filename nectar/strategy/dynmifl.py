@@ -1,8 +1,10 @@
+import math
 from typing import Callable, Dict, List, Optional, Tuple, Union
 from flwr.server.strategy import FedAvg
 from flwr.server.strategy.aggregate import aggregate, aggregate_inplace
 from flwr.server.client_proxy import ClientProxy
 from logging import INFO, WARNING
+from hydra.utils import instantiate
 from flwr.common.logger import log
 from flwr.common import (
     FitRes,
@@ -80,7 +82,12 @@ class DynMIFL(FedAvg):
 
         critical_value = self.critical_value_fn(server_round)
 
-        mi = [fit_res.metrics["mi"] for _, fit_res in results]
+        mi = [
+            fit_res.metrics["mi"]
+            for _, fit_res in results
+            if not math.isnan(fit_res.metrics["mi"])
+        ]
+
         lower_bound_mi = np.percentile(mi, critical_value * 100)
         upper_bound_mi = np.percentile(mi, (1 - critical_value) * 100)
 
@@ -89,7 +96,7 @@ class DynMIFL(FedAvg):
         if self.inplace:
             # Does in-place weighted average of results
             selected_results = [
-                results
+                (_, fit_res)
                 for _, fit_res in results
                 if lower_bound_mi <= fit_res.metrics["mi"] <= upper_bound_mi
             ]
@@ -116,3 +123,23 @@ class DynMIFL(FedAvg):
             log(WARNING, "No fit_metrics_aggregation_fn provided")
 
         return parameters_aggregated, metrics_aggregated
+
+
+def light_step():
+    def fn(server_round):
+        if server_round < 20:
+            return 0.05
+        elif server_round < 40:
+            return 0.1
+        elif server_round < 60:
+            return 0.15
+        elif server_round < 80:
+            return 0.2
+        else:
+            return 0.25
+
+    return fn
+
+
+def hard_step():
+    return lambda server_round: 0.05 if server_round < 50 else 0.25

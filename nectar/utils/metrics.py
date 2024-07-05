@@ -1,5 +1,7 @@
 from typing import List, Tuple
 from flwr.common import Metrics
+from logging import INFO, WARNING
+from flwr.common.logger import log
 
 
 def evaluate_metrics_aggregation_fn(metrics: List[Tuple[int, Metrics]]) -> Metrics:
@@ -11,8 +13,8 @@ def evaluate_metrics_aggregation_fn(metrics: List[Tuple[int, Metrics]]) -> Metri
     return {
         "accuracy": sum(accuracies) / sum(examples),
         "loss": sum(losses) / sum(examples),
-        "client_accuracy": ",".join(client_accuracy),
-        "client_loss": ",".join(client_loss),
+        "client_accuracy": ",".join(map(str, client_accuracy)),
+        "client_loss": ",".join(map(str, client_loss)),
     }
 
 
@@ -26,12 +28,15 @@ def fit_metrics_aggregation_fn(metrics: List[Tuple[int, Metrics]]) -> Metrics:
     client_accuracies = [m["accuracy"] for _, m in metrics]
     client_losses = [m["loss"] for _, m in metrics]
     client_mi = [m["mi"] for _, m in metrics]
+    client_cid = ",".join([str(m["cid"]) for _, m in metrics])
 
+    log(INFO, f"Clients {client_cid}")
     return {
         "accuracy": sum(accuracies) / sum(examples),
         "loss": sum(losses) / sum(examples),
         "mi": sum(mi) / sum(examples),
-        "client_accuracy": ",".join(client_accuracies),
-        "client_loss": ",".join(client_losses),
-        "client_mi": ",".join(client_mi),
+        "client_accuracy": ",".join(map(str, client_accuracies)),
+        "client_loss": ",".join(map(str, client_losses)),
+        "client_mi": ",".join(map(str, client_mi)),
+        "client_cid": client_cid,
     }

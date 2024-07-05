@@ -1,10 +1,9 @@
 num_clients: 30
 num_rounds: 100
-round_timeout: 1200
+round_timeout: 600
 client_resources:
   num_cpus: 1
   num_gpus: 0.5
-mi_type: "GAUSSIAN"
 
 partitioners:
   train: 
@@ -14,13 +13,12 @@ partitioners:
     partition_by: label
 
 fit_config:
-  epochs: 2
+  epochs: 1
   batch_size: 64
-  mi_type: ${mi_type}
+  mi_type: "GAUSSIAN"
   optimizer:
-    _target_: torch.optim.SGD
+    _target_: torch.optim.Adam
     lr: 0.01
-    momentum: 0.9
   criterion:
     _target_: torch.nn.CrossEntropyLoss
   distiller:
@@ -29,18 +27,18 @@ fit_config:
     gamma: 0.5
   
 model:
-  _target_: nectar.models.vgg16.VGG16
-  num_classes: 200
+  _target_: nectar.models.simplecnn.SimpleCNN
+  num_classes: 10
 
 dataset:
   load_dataset:
-    _target_: nectar.workloads.imagenet.load_dataset
+    _target_: nectar.workloads.mnist.load_dataset
   train_fn:
-    _target_: nectar.workloads.imagenet.train_fn
+    _target_: nectar.workloads.mnist.train_fn
   test_fn:
-    _target_: nectar.workloads.imagenet.test_fn
+    _target_: nectar.workloads.mnist.test_fn
   mi_fn:
-    _target_: nectar.workloads.imagenet.mi_fn
+    _target_: nectar.workloads.mnist.mi_fn
 
 
 
@@ -48,14 +46,12 @@ desc: "SimpleCNN on MNIST"
 
 strategy:
   _target_: nectar.strategy.optimifl.OptiMIFL
-  min_fit_clients: 20
-  fraction_evaluate: 0.8
+  fraction_fit: 0.7
+  fraction_evaluate: 0.7
   min_available_clients: ${num_clients}
-  mi_type: ${mi_type}
-  # critical_value_fn:
-    # _target_: nectar.strategy.dynmifl.hard_step
-  critical_value: 0.25
-  opti_rounds: 15
+  mi_type: "GAUSSIAN"
+  critical_value: 0.05
+  opti_rounds: 5
   lottery_ratio: 0
   
 
