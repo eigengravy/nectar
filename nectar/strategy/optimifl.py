@@ -159,7 +159,7 @@ class OptiMIFL(MIFL):
             client_manager.num_available()
         )
         clients = client_manager.sample(
-            num_clients=sample_size, min_num_clients=sample_size
+            num_clients=sample_size, min_num_clients=min_num_clients
         )
 
         lottery_idx = random.sample(

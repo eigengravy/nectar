@@ -117,7 +117,9 @@ class DynMIFL(FedAvg):
         # Aggregate custom metrics if aggregation fn was provided
         metrics_aggregated = {}
         if self.fit_metrics_aggregation_fn:
-            fit_metrics = [(res.num_examples, res.metrics) for _, res in results]
+            fit_metrics = [
+                (res.num_examples, res.metrics) for _, res in selected_results
+            ]
             metrics_aggregated = self.fit_metrics_aggregation_fn(fit_metrics)
         elif server_round == 1:  # Only log this warning once
             log(WARNING, "No fit_metrics_aggregation_fn provided")
@@ -127,14 +129,12 @@ class DynMIFL(FedAvg):
 
 def light_step():
     def fn(server_round):
-        if server_round < 20:
-            return 0.05
+        if server_round < 15:
+            return 0.0
         elif server_round < 40:
-            return 0.1
+            return 0.05
         elif server_round < 60:
             return 0.15
-        elif server_round < 80:
-            return 0.2
         else:
             return 0.25
 
