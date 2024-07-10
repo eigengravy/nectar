@@ -46,17 +46,24 @@ for path in sys.argv[1:]:
         num_clients = config["num_clients"]
         num_rounds = config["num_rounds"]
         bitmap = np.zeros((num_rounds, num_clients), dtype=bool)
+        client_mi = np.full((num_rounds, num_clients), np.nan)
 
         clients = [
             len(ids.split(","))
             for (_, ids) in history.metrics_distributed_fit["client_cid"]
         ]
 
-        for round_num, client_ids in enumerate(
-            history.metrics_distributed_fit["client_cid"]
+        for round_num, (client_ids, client_mis) in enumerate(
+            zip(
+                history.metrics_distributed_fit["client_cid"],
+                history.metrics_distributed_fit["client_mi"],
+            )
         ):
-            for client in map(int, client_ids[1].split(",")):
-                bitmap[round_num, client] = True
+            for _client, _mi in zip(
+                map(int, client_ids[1].split(",")), map(float, client_mis[1].split(","))
+            ):
+                bitmap[round_num, _client] = True
+                client_mi[round_num, _client] = _mi
 
         count = np.sum(bitmap, axis=0)
         plt.figure(figsize=(12, 6))
@@ -132,12 +139,20 @@ for path in sys.argv[1:]:
         )
         plt.close()
 
+        plt.figure(figsize=(12, 6))
+        plt.plot(client_mi)
+        plt.title("Client MI")
+        plt.xlabel("Round")
+        plt.ylabel("MI")
+        plt.legend()
+        plt.savefig(os.path.join(path, "client_mi.png"), bbox_inches="tight")
+        plt.close()
+
     except Exception as e:
         print(f"Error processing {path}: {e}")
         continue
 
-
-# Deprecated processing code
+# # Deprecated processing code
 
 # clients = []
 # if strategy == "nectar.strategy.optimifl.OptiMIFL":

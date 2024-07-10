@@ -79,6 +79,8 @@ class FlowerClient(fl.client.NumPyClient):
                     f"Client #{self.cid} Mode={config['opti_mifl']} MI={mi} {mi > config['lower_bound'] and mi < config['upper_bound']}",
                 )
                 if mi > config["lower_bound"] and mi < config["upper_bound"]:
+                    results["lower_bound"] = config["lower_bound"]
+                    results["upper_bound"] = config["upper_bound"]
                     return (
                         get_params(self.model),
                         len(self.trainloader.dataset),
