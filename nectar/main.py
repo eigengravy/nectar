@@ -92,6 +92,7 @@ def main(cfg):
         ),
         strategy=strategy,
         actor_kwargs={"on_actor_init_fn": disable_progress_bar},
+        ray_init_args={"include_dashboard": True},
     )
 
     save_path = HydraConfig.get().runtime.output_dir
