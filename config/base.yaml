@@ -48,13 +48,15 @@ desc: "SimpleCNN on MNIST"
 
 strategy:
   # _target_: nectar.strategy.mifl.MIFL
-  _target_: nectar.strategy.dynmifl.DynMIFL
-  min_fit_clients: 20
+  _target_: nectar.strategy.dynamifl.DynaMIFL
+  min_fit_clients: 24
   fraction_evaluate: 0.8
   min_available_clients: ${num_clients}
   mi_type: ${mi_type}
-  critical_value_fn:
-    _target_: nectar.strategy.dynmifl.light_step
+  trigger_round: 10
+  optimize: False
+ # critical_value_fn:
+#    _target_: nectar.strategy.dynmifl.light_step
   # critical_value: 0.25
   # opti_rounds: 15
   # lottery_ratio: 0.3

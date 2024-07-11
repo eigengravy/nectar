@@ -41,6 +41,10 @@ class FlowerClient(fl.client.NumPyClient):
         return get_params(self.model)
 
     def fit(self, parameters, config):
+        if "dyna_mifl" in config.keys():
+            if config["dyna_mifl"] == 1:
+                return [], 0, {"cid": -1}
+
         set_params(self.model, parameters)
         epochs = config["epochs"]
         teacher = copy.deepcopy(self.model)

@@ -1,4 +1,5 @@
 import math
+import random
 from typing import Callable, Dict, List, Optional, Tuple, Union
 from flwr.server.strategy import FedAvg
 from flwr.server.strategy.aggregate import aggregate, aggregate_inplace
@@ -7,6 +8,7 @@ from logging import INFO, WARNING
 from hydra.utils import instantiate
 from flwr.common.logger import log
 from flwr.common import (
+    FitIns,
     FitRes,
     MetricsAggregationFn,
     NDArrays,
@@ -17,6 +19,7 @@ from flwr.common import (
 )
 import numpy as np
 from scipy.signal import savgol_filter
+from flwr.server.client_manager import ClientManager
 
 
 class DynaMIFL(FedAvg):
@@ -40,12 +43,12 @@ class DynaMIFL(FedAvg):
         initial_parameters: Optional[Parameters] = None,
         fit_metrics_aggregation_fn: Optional[MetricsAggregationFn] = None,
         evaluate_metrics_aggregation_fn: Optional[MetricsAggregationFn] = None,
-        inplace: bool = True,
         mi_type: str,
         trigger_round: int = None,
         low_critical_value: float = 0.05,
         high_critical_value: float = 0.20,
         window_length: int = 10,
+        optimize: bool = True,
     ) -> None:
         super().__init__(
             fraction_fit=fraction_fit,
@@ -60,7 +63,7 @@ class DynaMIFL(FedAvg):
             initial_parameters=initial_parameters,
             fit_metrics_aggregation_fn=fit_metrics_aggregation_fn,
             evaluate_metrics_aggregation_fn=evaluate_metrics_aggregation_fn,
-            inplace=inplace,
+            inplace=True,
         )
         self.mi_type = mi_type
         self.trigger_round = trigger_round
@@ -69,6 +72,8 @@ class DynaMIFL(FedAvg):
         self.has_triggered = False
         self.mi_history = []
         self.window_length = window_length
+        self.client_score = [0] * min_available_clients
+        self.optimize = optimize
 
     def __repr__(self) -> str:
         """Compute a string representation of the strategy."""
@@ -88,6 +93,8 @@ class DynaMIFL(FedAvg):
         if not self.accept_failures and failures:
             return None, {}
 
+        results = [result for result in results if result[1].metrics["cid"] != -1]
+
         # Collect mutual information of clients from fit results
         mi = [
             fit_res.metrics["mi"]
@@ -99,6 +106,7 @@ class DynaMIFL(FedAvg):
         if len(mi) < self.min_fit_clients:
             mi.extend([sum(mi) / len(mi)] * (self.min_fit_clients - len(mi)))
 
+        # Save weighted average of mutual information
         self.mi_history.append(
             sum(
                 [
@@ -138,23 +146,16 @@ class DynaMIFL(FedAvg):
 
         log(INFO, f"Lower bound MI: {lower_bound_mi}, Upper bound MI: {upper_bound_mi}")
 
-        if self.inplace:
-            # Does in-place weighted average of results
-            selected_results = [
-                (_, fit_res)
-                for _, fit_res in results
-                if lower_bound_mi <= fit_res.metrics["mi"] <= upper_bound_mi
-            ]
+        selected_results = [
+            (_, fit_res)
+            for _, fit_res in results
+            if lower_bound_mi <= fit_res.metrics["mi"] <= upper_bound_mi
+        ]
 
-            aggregated_ndarrays = aggregate_inplace(selected_results)
-        else:
-            # Convert results
-            selected_results = [
-                (parameters_to_ndarrays(fit_res.parameters), fit_res.num_examples)
-                for _, fit_res in results
-                if lower_bound_mi <= fit_res.metrics["mi"] <= upper_bound_mi
-            ]
-            aggregated_ndarrays = aggregate(selected_results)
+        for _, fit_res in selected_results:
+            self.client_score[int(fit_res.metrics["cid"])] += 1
+
+        aggregated_ndarrays = aggregate_inplace(selected_results)
 
         log(INFO, f"Aggregating {len(selected_results)} fit results")
         parameters_aggregated = ndarrays_to_parameters(aggregated_ndarrays)
@@ -171,20 +172,53 @@ class DynaMIFL(FedAvg):
 
         return parameters_aggregated, metrics_aggregated
 
+    def configure_fit(
+        self, server_round: int, parameters: Parameters, client_manager: ClientManager
+    ) -> List[Tuple[ClientProxy | FitIns]]:
+        """Configure the next round of training."""
+        config = {}
+        if self.on_fit_config_fn is not None:
+            config = self.on_fit_config_fn(server_round)
 
-def light_step():
-    def fn(server_round):
-        if server_round < 15:
-            return 0.0
-        elif server_round < 40:
-            return 0.05
-        elif server_round < 60:
-            return 0.15
+        sample_size, min_num_clients = self.num_fit_clients(
+            client_manager.num_available()
+        )
+        clients = client_manager.sample(
+            num_clients=sample_size, min_num_clients=min_num_clients
+        )
+
+        fit_configurations = []
+
+        if self.optimize and self.has_triggered:
+            population = np.array([int(c.cid) for c in clients])
+            population_weights = np.take(self.client_score, population)
+            population_weights = np.array(population_weights) / np.sum(
+                population_weights
+            )
+
+            critical_value = (
+                self.high_critical_value
+                if self.has_triggered
+                else self.low_critical_value
+            )
+            size = int(self.min_fit_clients * (1 - 2 * critical_value))
+            selected_idx = np.random.choice(
+                population, size=size, replace=False, p=population_weights
+            )
+
+            for client in clients:
+                if int(client.cid) in selected_idx:
+                    fit_configurations.append(
+                        (client, FitIns(parameters, {"dyna_mifl": 0, **config}))
+                    )
+                else:
+                    fit_configurations.append(
+                        (client, FitIns([], {"dyna_mifl": 1, **config}))
+                    )
         else:
-            return 0.25
+            for client in clients:
+                fit_configurations.append(
+                    (client, FitIns(parameters, {"dyna_mifl": 0, **config}))
+                )
 
-    return fn
-
-
-def hard_step():
-    return lambda server_round: 0.05 if server_round < 50 else 0.25
+        return fit_configurations
