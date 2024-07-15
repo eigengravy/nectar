@@ -25,39 +25,6 @@ from nectar.utils.model import test
 from nectar.utils.params import get_params, set_params
 
 
-# Flower client, adapted from Pytorch quickstart example
-class FlowerClient(fl.client.NumPyClient):
-    def __init__(self, trainset, valset, cid):
-        self.trainset = trainset
-        self.cid = cid
-        self.valset = valset
-        self.model = Net()
-        self.device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
-        self.model.to(self.device)  # send model to device
-
-    def get_parameters(self, config):
-        return get_params(self.model)
-
-    def fit(self, parameters, config):
-        set_params(self.model, parameters)
-
-        # Read from config
-        batch, epochs = config["batch_size"], config["epochs"]
-        trainloader = DataLoader(self.trainset, batch_size=batch, shuffle=True)
-
-        optimizer = torch.optim.SGD(self.model.parameters(), lr=0.01, momentum=0.9)
-        results = train(
-            self.model, trainloader, optimizer, epochs=epochs, device=self.device
-        )
-        return get_params(self.model), len(trainloader.dataset), results
-
-    def evaluate(self, parameters, config):
-        set_params(self.model, parameters)
-        valloader = DataLoader(self.valset, batch_size=64)
-        loss, accuracy = test(self.model, valloader, device=self.device)
-        return float(loss), len(valloader.dataset), {"accuracy": float(accuracy)}
-
-
 def get_client_fn(dataset: FederatedDataset):
     """Return a function to construct a client.
 

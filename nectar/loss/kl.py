@@ -14,7 +14,7 @@ class DistillLoss(nn.Module):
         self.gamma = gamma
         self.kld = nn.KLDivLoss(reduction="batchmean")
 
-    def forward(self, student_logits, teacher_logits):
+    def forward(self, student_logits, teacher_logits, labels=None):
         """Forward pass."""
         soft_targets = F.softmax(teacher_logits / self.temp, dim=-1)
         soft_prob = F.log_softmax(student_logits / self.temp, dim=-1)

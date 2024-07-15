@@ -1,8 +1,10 @@
+import math
 from typing import Callable, Dict, List, Optional, Tuple, Union
 from flwr.server.strategy import FedAvg
 from flwr.server.strategy.aggregate import aggregate, aggregate_inplace
 from flwr.server.client_proxy import ClientProxy
 from logging import INFO, WARNING
+from hydra.utils import instantiate
 from flwr.common.logger import log
 from flwr.common import (
     FitRes,
@@ -14,10 +16,9 @@ from flwr.common import (
     parameters_to_ndarrays,
 )
 import numpy as np
-import math
 
 
-class MIFL(FedAvg):
+class DynMIFL(FedAvg):
     def __init__(
         self,
         *,
@@ -40,7 +41,7 @@ class MIFL(FedAvg):
         evaluate_metrics_aggregation_fn: Optional[MetricsAggregationFn] = None,
         inplace: bool = True,
         mi_type: str,
-        critical_value: float,
+        critical_value_fn: Callable[[int], float],
     ) -> None:
         super().__init__(
             fraction_fit=fraction_fit,
@@ -59,11 +60,11 @@ class MIFL(FedAvg):
         )
         # MIFL Hyperparameters
         self.mi_type = mi_type
-        self.critical_value = critical_value
+        self.critical_value_fn = critical_value_fn
 
     def __repr__(self) -> str:
         """Compute a string representation of the strategy."""
-        rep = f"MIFL(mi_type={self.mi_type}, critical_value={self.critical_value})"
+        rep = f"DynMIFL(mi_type={self.mi_type})"
         return rep
 
     def aggregate_fit(
@@ -79,17 +80,16 @@ class MIFL(FedAvg):
         if not self.accept_failures and failures:
             return None, {}
 
+        critical_value = self.critical_value_fn(server_round)
+
         mi = [
             fit_res.metrics["mi"]
             for _, fit_res in results
             if not math.isnan(fit_res.metrics["mi"])
         ]
 
-        if len(mi) < self.min_fit_clients:
-            mi.extend([sum(mi) / len(mi)] * (self.min_fit_clients - len(mi)))
-
-        lower_bound_mi = np.percentile(mi, self.critical_value * 100)
-        upper_bound_mi = np.percentile(mi, (1 - self.critical_value) * 100)
+        lower_bound_mi = np.percentile(mi, critical_value * 100)
+        upper_bound_mi = np.percentile(mi, (1 - critical_value) * 100)
 
         log(INFO, f"Lower bound MI: {lower_bound_mi}, Upper bound MI: {upper_bound_mi}")
 
@@ -100,8 +100,8 @@ class MIFL(FedAvg):
                 for _, fit_res in results
                 if lower_bound_mi <= fit_res.metrics["mi"] <= upper_bound_mi
             ]
+
             aggregated_ndarrays = aggregate_inplace(selected_results)
-            print(f"Aggregating fit results {len(selected_results)}")
         else:
             # Convert results
             selected_results = [
@@ -112,7 +112,6 @@ class MIFL(FedAvg):
             aggregated_ndarrays = aggregate(selected_results)
 
         log(INFO, f"Aggregating {len(selected_results)} fit results")
-
         parameters_aggregated = ndarrays_to_parameters(aggregated_ndarrays)
 
         # Aggregate custom metrics if aggregation fn was provided
@@ -126,3 +125,21 @@ class MIFL(FedAvg):
             log(WARNING, "No fit_metrics_aggregation_fn provided")
 
         return parameters_aggregated, metrics_aggregated
+
+
+def light_step():
+    def fn(server_round):
+        if server_round < 15:
+            return 0.0
+        elif server_round < 40:
+            return 0.05
+        elif server_round < 60:
+            return 0.15
+        else:
+            return 0.25
+
+    return fn
+
+
+def hard_step():
+    return lambda server_round: 0.05 if server_round < 50 else 0.25

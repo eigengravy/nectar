@@ -20,49 +20,51 @@ class RKDLoss(nn.Module):
         self.w_dist = w_dist
         self.w_angle = w_angle
 
-    def forward(self, feat_s, feat_t):
+    def forward(self, student_logits, teacher_logits):
         loss = self.w_dist * self.rkd_dist(
-            feat_s, feat_t
-        ) + self.w_angle * self.rkd_angle(feat_s, feat_t)
+            student_logits, teacher_logits
+        ) + self.w_angle * self.rkd_angle(student_logits, teacher_logits)
 
         return loss
 
-    def rkd_dist(self, feat_s, feat_t):
-        feat_t_dist = self.pdist(feat_t, squared=False)
-        mean_feat_t_dist = feat_t_dist[feat_t_dist > 0].mean()
-        feat_t_dist = feat_t_dist / mean_feat_t_dist
+    def rkd_dist(self, student_logits, teacher_logits, labels=None):
+        teacher_logits_dist = self.pdist(teacher_logits, squared=False)
+        mean_teacher_logits_dist = teacher_logits_dist[teacher_logits_dist > 0].mean()
+        teacher_logits_dist = teacher_logits_dist / mean_teacher_logits_dist
 
-        feat_s_dist = self.pdist(feat_s, squared=False)
-        mean_feat_s_dist = feat_s_dist[feat_s_dist > 0].mean()
-        feat_s_dist = feat_s_dist / mean_feat_s_dist
+        student_logits_dist = self.pdist(student_logits, squared=False)
+        mean_student_logits_dist = student_logits_dist[student_logits_dist > 0].mean()
+        student_logits_dist = student_logits_dist / mean_student_logits_dist
 
-        loss = F.smooth_l1_loss(feat_s_dist, feat_t_dist)
+        loss = F.smooth_l1_loss(student_logits_dist, teacher_logits_dist)
 
         return loss
 
-    def rkd_angle(self, feat_s, feat_t):
+    def rkd_angle(self, student_logits, teacher_logits):
         # N x C --> N x N x C
-        feat_t_vd = feat_t.unsqueeze(0) - feat_t.unsqueeze(1)
-        norm_feat_t_vd = F.normalize(feat_t_vd, p=2, dim=2)
-        feat_t_angle = torch.bmm(norm_feat_t_vd, norm_feat_t_vd.transpose(1, 2)).view(
-            -1
-        )
+        teacher_logits_vd = teacher_logits.unsqueeze(0) - teacher_logits.unsqueeze(1)
+        norm_teacher_logits_vd = F.normalize(teacher_logits_vd, p=2, dim=2)
+        teacher_logits_angle = torch.bmm(
+            norm_teacher_logits_vd, norm_teacher_logits_vd.transpose(1, 2)
+        ).view(-1)
 
-        feat_s_vd = feat_s.unsqueeze(0) - feat_s.unsqueeze(1)
-        norm_feat_s_vd = F.normalize(feat_s_vd, p=2, dim=2)
-        feat_s_angle = torch.bmm(norm_feat_s_vd, norm_feat_s_vd.transpose(1, 2)).view(
-            -1
-        )
+        student_logits_vd = student_logits.unsqueeze(0) - student_logits.unsqueeze(1)
+        norm_student_logits_vd = F.normalize(student_logits_vd, p=2, dim=2)
+        student_logits_angle = torch.bmm(
+            norm_student_logits_vd, norm_student_logits_vd.transpose(1, 2)
+        ).view(-1)
 
-        loss = F.smooth_l1_loss(feat_s_angle, feat_t_angle)
+        loss = F.smooth_l1_loss(student_logits_angle, teacher_logits_angle)
 
         return loss
 
     def pdist(self, feat, squared=False, eps=1e-12):
-        feat_square = feat.pow(2).sum(dim=1)
+        student_logitsquare = feat.pow(2).sum(dim=1)
         feat_prod = torch.mm(feat, feat.t())
         feat_dist = (
-            feat_square.unsqueeze(0) + feat_square.unsqueeze(1) - 2 * feat_prod
+            student_logitsquare.unsqueeze(0)
+            + student_logitsquare.unsqueeze(1)
+            - 2 * feat_prod
         ).clamp(min=eps)
 
         if not squared:
