@@ -96,15 +96,11 @@ class DynaMIFL(FedAvg):
         results = [result for result in results if result[1].metrics["cid"] != -1]
 
         # Collect mutual information of clients from fit results
-        mi = [
-            fit_res.metrics["mi"]
-            for _, fit_res in results
-            if not math.isnan(fit_res.metrics["mi"])
-        ]
+        mi = [fit_res.metrics["mi"] for _, fit_res in results]
 
-        # If not enough clients have mutual information, fill with average
-        if len(mi) < self.min_fit_clients:
-            mi.extend([sum(mi) / len(mi)] * (self.min_fit_clients - len(mi)))
+        # # If not enough clients have mutual information, fill with average
+        # if len(mi) < self.min_fit_clients:
+        #     mi.extend([sum(mi) / len(mi)] * (self.min_fit_clients - len(mi)))
 
         # Save weighted average of mutual information
         self.mi_history.append(
@@ -124,6 +120,32 @@ class DynaMIFL(FedAvg):
             )
         )
 
+        selected_results = results
+
+        if not self.has_triggered:
+            critical_value = (
+                self.high_critical_value
+                if self.has_triggered
+                else self.low_critical_value
+            )
+
+            lower_bound_mi = np.nanpercentile(mi, critical_value * 100)
+            upper_bound_mi = np.nanpercentile(mi, (1 - critical_value) * 100)
+
+            log(
+                INFO,
+                f"Lower bound MI: {lower_bound_mi}, Upper bound MI: {upper_bound_mi}",
+            )
+
+            selected_results = [
+                (_, fit_res)
+                for _, fit_res in results
+                if lower_bound_mi <= fit_res.metrics["mi"] <= upper_bound_mi
+            ]
+
+        for _, fit_res in selected_results:
+            self.client_score[int(fit_res.metrics["cid"])] += 1
+
         if not self.has_triggered:
             if self.trigger_round is not None:
                 self.has_triggered = server_round >= self.trigger_round
@@ -136,24 +158,6 @@ class DynaMIFL(FedAvg):
                 self.has_triggered = (
                     len(np.where((derivative[:-1] > 0) & (derivative[1:] < 0))[0]) > 0
                 )
-
-        critical_value = (
-            self.high_critical_value if self.has_triggered else self.low_critical_value
-        )
-
-        lower_bound_mi = np.percentile(mi, critical_value * 100)
-        upper_bound_mi = np.percentile(mi, (1 - critical_value) * 100)
-
-        log(INFO, f"Lower bound MI: {lower_bound_mi}, Upper bound MI: {upper_bound_mi}")
-
-        selected_results = [
-            (_, fit_res)
-            for _, fit_res in results
-            if lower_bound_mi <= fit_res.metrics["mi"] <= upper_bound_mi
-        ]
-
-        for _, fit_res in selected_results:
-            self.client_score[int(fit_res.metrics["cid"])] += 1
 
         aggregated_ndarrays = aggregate_inplace(selected_results)
 
@@ -204,6 +208,16 @@ class DynaMIFL(FedAvg):
             size = int(self.min_fit_clients * (1 - 2 * critical_value))
             selected_idx = np.random.choice(
                 population, size=size, replace=False, p=population_weights
+            )
+
+            log(
+                INFO,
+                f"Selecting {size} clients: {selected_idx} from ({len(population)}) {population}",
+            )
+
+            log(
+                INFO,
+                f"min_fit_clients:{self.min_fit_clients} min_num_clients:{min_num_clients} sample_size:{sample_size}",
             )
 
             for client in clients:
