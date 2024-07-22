@@ -8,30 +8,6 @@ import numpy as np
 from omegaconf import OmegaConf
 
 
-def process_optimifl(history, bitmap, clients):
-
-    return bitmap, clients
-
-
-def process_other_strategy(config, history, bitmap, clients):
-    critical_value = config["strategy"]["critical_value"]
-
-    for round_num, (mi_values, client_ids) in enumerate(
-        zip(
-            history.metrics_distributed_fit["client_mi"],
-            history.metrics_distributed_fit["client_cid"],
-        )
-    ):
-        mi = np.array(list(map(float, mi_values.split(","))))
-        lower_bound, upper_bound = np.percentile(
-            mi, [critical_value * 100, (1 - critical_value) * 100]
-        )
-
-        mask = (lower_bound <= mi) & (mi <= upper_bound)
-        clients.append(np.sum(mask))
-        bitmap[round_num, mask] = True
-
-
 for path in sys.argv[1:]:
     if not os.path.isdir(path):
         continue
@@ -42,6 +18,24 @@ for path in sys.argv[1:]:
         strategy = config["strategy"]["_target_"]
         losses = list(map(lambda x: x[1], history.losses_centralized))
         accuracies = list(map(lambda x: x[1], history.metrics_centralized["accuracy"]))
+
+        client_accuracies = list(
+            map(
+                lambda x: list(map(float, x[1].split(","))),
+                history.metrics_distributed["client_accuracy"],
+            )
+        )
+        client_losses = list(
+            map(
+                lambda x: list(map(float, x[1].split(","))),
+                history.metrics_distributed["client_loss"],
+            )
+        )
+
+        distributed_losses = list(map(lambda x: x[1], history.losses_distributed))
+        distributed_accuracies = list(
+            map(lambda x: x[1], history.metrics_distributed["accuracy"])
+        )
 
         num_clients = config["num_clients"]
         num_rounds = config["num_rounds"]
@@ -105,6 +99,32 @@ for path in sys.argv[1:]:
             w.writerows([[acc] for acc in accuracies])
 
         plt.figure(figsize=(12, 6))
+        plt.plot(distributed_losses)
+        plt.title("Distributed Loss")
+        plt.xlabel("Round")
+        plt.ylabel("Loss")
+        plt.legend()
+        plt.savefig(os.path.join(path, "losses_distributed.png"), bbox_inches="tight")
+        plt.close()
+
+        with open(os.path.join(path, "losses_distributed.csv"), "w") as f:
+            w = csv.writer(f)
+            w.writerows([[loss] for loss in distributed_losses])
+
+        plt.figure(figsize=(12, 6))
+        plt.plot(distributed_accuracies)
+        plt.title("Distributed Accuracy")
+        plt.xlabel("Round")
+        plt.ylabel("Accuracy")
+        plt.legend()
+        plt.savefig(os.path.join(path, "accuracy_distributed.png"), bbox_inches="tight")
+        plt.close()
+
+        with open(os.path.join(path, "accuracy_distributed.csv"), "w") as f:
+            w = csv.writer(f)
+            w.writerows([[acc] for acc in distributed_accuracies])
+
+        plt.figure(figsize=(12, 6))
         plt.plot(clients)
         plt.title("Number of Clients")
         plt.xlabel("Round")
@@ -147,6 +167,36 @@ for path in sys.argv[1:]:
         plt.legend()
         plt.savefig(os.path.join(path, "client_mi.png"), bbox_inches="tight")
         plt.close()
+
+        with open(os.path.join(path, "client_mi.csv"), "w") as f:
+            w = csv.writer(f)
+            w.writerows(client_mi)
+
+        plt.figure(figsize=(12, 6))
+        plt.plot(client_accuracies)
+        plt.title("Client Accuracy")
+        plt.xlabel("Round")
+        plt.ylabel("Accuracy")
+        plt.legend()
+        plt.savefig(os.path.join(path, "client_accuracy.png"), bbox_inches="tight")
+        plt.close()
+
+        with open(os.path.join(path, "client_accuracy.csv"), "w") as f:
+            w = csv.writer(f)
+            w.writerows(client_accuracies)
+
+        plt.figure(figsize=(12, 6))
+        plt.plot(client_losses)
+        plt.title("Client Loss")
+        plt.xlabel("Round")
+        plt.ylabel("Loss")
+        plt.legend()
+        plt.savefig(os.path.join(path, "client_loss.png"), bbox_inches="tight")
+        plt.close()
+
+        with open(os.path.join(path, "client_loss.csv"), "w") as f:
+            w = csv.writer(f)
+            w.writerows(client_losses)
 
     except Exception as e:
         print(f"Error processing {path}: {e}")
