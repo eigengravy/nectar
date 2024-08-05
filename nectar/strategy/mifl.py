@@ -11,7 +11,6 @@ from flwr.common import (
     Parameters,
     Scalar,
     ndarrays_to_parameters,
-    parameters_to_ndarrays,
 )
 import numpy as np
 import math
@@ -41,6 +40,7 @@ class MIFL(FedAvg):
         inplace: bool = True,
         mi_type: str,
         critical_value: float,
+        k_top: int = None,
     ) -> None:
         super().__init__(
             fraction_fit=fraction_fit,
@@ -60,6 +60,7 @@ class MIFL(FedAvg):
         # MIFL Hyperparameters
         self.mi_type = mi_type
         self.critical_value = critical_value
+        self.k_top = k_top
 
     def __repr__(self) -> str:
         """Compute a string representation of the strategy."""
@@ -79,50 +80,38 @@ class MIFL(FedAvg):
         if not self.accept_failures and failures:
             return None, {}
 
-        mi = [
-            fit_res.metrics["mi"]
-            for _, fit_res in results
-            if not math.isnan(fit_res.metrics["mi"])
-        ]
+        mi = [fit_res.metrics["mi"] for _, fit_res in results]
 
-        if len(mi) < self.min_fit_clients:
-            mi.extend([sum(mi) / len(mi)] * (self.min_fit_clients - len(mi)))
-
-        lower_bound_mi = np.percentile(mi, self.critical_value * 100)
-        upper_bound_mi = np.percentile(mi, (1 - self.critical_value) * 100)
+        lower_bound_mi = np.nanpercentile(mi, self.critical_value * 100)
+        upper_bound_mi = np.nanpercentile(mi, (1 - self.critical_value) * 100)
 
         log(INFO, f"Lower bound MI: {lower_bound_mi}, Upper bound MI: {upper_bound_mi}")
 
-        if self.inplace:
-            # Does in-place weighted average of results
-            selected_results = [
-                (_, fit_res)
-                for _, fit_res in results
-                if lower_bound_mi <= fit_res.metrics["mi"] <= upper_bound_mi
-            ]
-            aggregated_ndarrays = aggregate_inplace(selected_results)
-            print(f"Aggregating fit results {len(selected_results)}")
-        else:
-            # Convert results
-            selected_results = [
-                (parameters_to_ndarrays(fit_res.parameters), fit_res.num_examples)
-                for _, fit_res in results
-                if lower_bound_mi <= fit_res.metrics["mi"] <= upper_bound_mi
-            ]
-            aggregated_ndarrays = aggregate(selected_results)
+        selected_results = [
+            (_, fit_res)
+            for _, fit_res in results
+            if lower_bound_mi <= fit_res.metrics["mi"] <= upper_bound_mi
+        ]
+
+        if self.k_top:
+            selected_results = sorted(
+                selected_results, key=lambda res: res[1].metrics["mi"], reverse=True
+            )[: self.k_top]
+
+        aggregated_ndarrays = aggregate_inplace(selected_results)
+        print(f"Aggregating fit results {len(selected_results)}")
 
         log(INFO, f"Aggregating {len(selected_results)} fit results")
 
         parameters_aggregated = ndarrays_to_parameters(aggregated_ndarrays)
 
-        # Aggregate custom metrics if aggregation fn was provided
         metrics_aggregated = {}
         if self.fit_metrics_aggregation_fn:
             fit_metrics = [
                 (res.num_examples, res.metrics) for _, res in selected_results
             ]
             metrics_aggregated = self.fit_metrics_aggregation_fn(fit_metrics)
-        elif server_round == 1:  # Only log this warning once
+        elif server_round == 1:
             log(WARNING, "No fit_metrics_aggregation_fn provided")
 
         return parameters_aggregated, metrics_aggregated

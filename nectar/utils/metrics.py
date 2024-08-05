@@ -2,6 +2,7 @@ from typing import List, Tuple
 from flwr.common import Metrics
 from logging import INFO, WARNING
 from flwr.common.logger import log
+import numpy as np
 
 
 def evaluate_metrics_aggregation_fn(metrics: List[Tuple[int, Metrics]]) -> Metrics:
@@ -34,7 +35,7 @@ def fit_metrics_aggregation_fn(metrics: List[Tuple[int, Metrics]]) -> Metrics:
     return {
         "accuracy": sum(accuracies) / sum(examples),
         "loss": sum(losses) / sum(examples),
-        "mi": sum(mi) / sum(examples),
+        "mi": np.nansum(mi) / sum(examples),
         "client_accuracy": ",".join(map(str, client_accuracies)),
         "client_loss": ",".join(map(str, client_losses)),
         "client_mi": ",".join(map(str, client_mi)),

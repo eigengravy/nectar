@@ -6,7 +6,6 @@ from torch import Tensor
 import math
 
 
-
 def mutual_information(x: Tensor, y: Tensor, mi_type: str) -> Tensor:
     """
     Calculate the mutual information between two distributions.
@@ -43,7 +42,7 @@ def categorical_mutual_information(x: Tensor, y: Tensor) -> Tensor:
 
     def categorical_entropy(p: Tensor) -> Tensor:
         return -torch.sum(
-            F.softmax(p, dim=-1) * torch.log(F.softmax(p, dim=-1) + 1e-12), dim=-1
+            F.softmax(p, dim=-1) * torch.log(F.softmax(p, dim=-1) + 1e-8), dim=-1
         )
 
     h_x = categorical_entropy(x.mean(dim=0))
@@ -79,7 +78,6 @@ def gaussian_mutual_information(x: Tensor, y: Tensor) -> Tensor:
     return -0.5 * torch.mean(torch.log(1 - rho_gk**2))
 
 
-        
 # def gaussian_mutual_information(x: Tensor, y: Tensor) -> Tensor:
 #     """
 #     Calculate the mutual information between two Gaussian distributions with covariance.
@@ -101,16 +99,15 @@ def gaussian_mutual_information(x: Tensor, y: Tensor) -> Tensor:
 #     return h_x + h_y - h_xy
 
 
-
 # def gaussian_entropy_with_covariance(mu, cov, eps=1e-8):
 #     """
 #     Calculate the entropy of a multivariate Gaussian distribution.
-    
+
 #     Args:
 #     mu (torch.Tensor): Mean vector of shape (feature_dim,)
 #     cov (torch.Tensor): Covariance matrix of shape (feature_dim, feature_dim)
 #     eps (float): Small value to add to diagonal for numerical stability
-    
+
 #     Returns:
 #     torch.Tensor: Entropy of the multivariate Gaussian distribution
 #     """
@@ -119,7 +116,6 @@ def gaussian_mutual_information(x: Tensor, y: Tensor) -> Tensor:
 #     eigvals = torch.linalg.eigvalsh(cov_reg)
 #     logdet = torch.sum(torch.log(eigvals))
 #     return 0.5 * (feature_dim * (1.0 + math.log(2 * math.pi)) + logdet)
-
 
 
 def _gen_random_tensors(batch_size: int, num_categories: int) -> Tuple[Tensor, Tensor]:
@@ -160,9 +156,8 @@ if __name__ == "__main__":
     # print(f"Gaussian Mutual Information: {gauss_mi.item()}")
     # temp = gaussian_mutual_information_with_covariance(x,y)
     # print(f"Gaussian Mutual Information: {temp.item()}")
-    print(mutual_information(x,y,"CATEGORICAL").item())
-    print(mutual_information(x,y,"GAUSSIAN").item())
-
+    print(mutual_information(x, y, "CATEGORICAL").item())
+    print(mutual_information(x, y, "GAUSSIAN").item())
 
     print("-" * 50)
 
@@ -175,8 +170,8 @@ if __name__ == "__main__":
     # print(f"Gaussian Mutual Information: {gauss_mi.item()}")
     # temp = gaussian_mutual_information_with_covariance(x,y)
     # print(f"Gaussian Mutual Information: {temp.item()}")
-    print(mutual_information(x,y,"CATEGORICAL").item())
-    print(mutual_information(x,y,"GAUSSIAN").item())
+    print(mutual_information(x, y, "CATEGORICAL").item())
+    print(mutual_information(x, y, "GAUSSIAN").item())
 
     print("-" * 50)
 
@@ -189,5 +184,5 @@ if __name__ == "__main__":
     # print(f"Gaussian Mutual Information: {gauss_mi.item()}")
     # temp = gaussian_mutual_information_with_covariance(x,y)
     # print(f"Gaussian Mutual Information: {temp.item()}")
-    print(mutual_information(x,y,"CATEGORICAL").item())
-    print(mutual_information(x,y,"GAUSSIAN").item())
+    print(mutual_information(x, y, "CATEGORICAL").item())
+    print(mutual_information(x, y, "GAUSSIAN").item())
