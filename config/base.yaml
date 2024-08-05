@@ -1,5 +1,5 @@
-num_clients: 30
-num_rounds: 100
+num_clients: 10
+num_rounds: 15
 round_timeout: 1200
 client_resources:
   num_cpus: 1
@@ -38,7 +38,7 @@ dataset:
     _target_: nectar.workloads.${workload}.load_dataset
   train_fn:
     _target_: nectar.workloads.${workload}.train_fn
-    distill: true
+    distill: false
   test_fn:
     _target_: nectar.workloads.${workload}.test_fn
   mi_fn:
@@ -49,18 +49,19 @@ dataset:
 desc: "MI 2.5%,5% with KTop 10,15 vs 20%"
 
 strategy:
-  _target_: nectar.strategy.mifl.MIFL
+  # _target_: nectar.strategy.mifl.MIFL
   # _target_: nectar.strategy.dynamifl.DynaMIFL
   # _target_: flwr.server.strategy.FedAvg
+  _target_: nectar.strategy.fedslerp.FedSlerp
   min_fit_clients: ${num_clients}
   fraction_evaluate: 1
   min_available_clients: ${num_clients}
-  mi_type: ${mi_type}
+  # mi_type: ${mi_type}
   # trigger_round: 10
   # optimize: False
  # critical_value_fn:
 #    _target_: nectar.strategy.dynmifl.light_step
-  critical_value: 0.025
+  # critical_value: 0.025
   # k_top: 10
   # opti_rounds: 15
   # lottery_ratio: 0.3
